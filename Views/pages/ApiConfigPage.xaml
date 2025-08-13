@@ -1,0 +1,13 @@
+﻿<!-- Views/Pages/ApiConfigPage.xaml -->
+<Page x:Class="SigstreamTelemetryAgent.Views.Pages.ApiConfigPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Title="API Config">
+    <StackPanel Margin="24" Width="500">
+        <TextBlock Text="API Key"/>
+        <TextBox Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding InputsEnabled}"/>
+        <TextBlock Text="Device Label" Margin="0,12,0,0"/>
+        <TextBox Text="{Binding DeviceLabel, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding InputsEnabled}"/>
+        <Button Content="Register" Margin="0,16,0,0" Command="{Binding RegisterCommand}"/>
+    </StackPanel>
+</Page>

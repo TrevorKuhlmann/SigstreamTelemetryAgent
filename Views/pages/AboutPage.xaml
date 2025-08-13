@@ -1,0 +1,7 @@
+﻿<!-- Views/Pages/AboutPage.xaml -->
+<Page x:Class="SigstreamTelemetryAgent.Views.Pages.AboutPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="About">
+    <StackPanel Margin="24">
+        <TextBlock Text="SigstreamTelemetryAgent" FontSize="18" FontWeight="Bold"/>
+        <TextBlock Text="Version 0.1"/>
+    </StackPanel>
+</Page>
