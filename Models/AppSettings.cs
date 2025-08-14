@@ -11,5 +11,10 @@ namespace SigstreamTelemetryAgent.Models
         public int BaudRate { get; set; } = 9600;
         public bool SendHeartbeats { get; set; } = true;
         public int HeartbeatSeconds { get; set; } = 30;
+
+        // Models/AppSettings.cs
+        public bool StartMinimized { get; set; } = true;   // new
+        public bool AutoStartOnBoot { get; set; } = false; // (used below)
+
     }
 }

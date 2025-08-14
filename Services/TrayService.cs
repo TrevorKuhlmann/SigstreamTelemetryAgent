@@ -17,6 +17,7 @@ namespace SigstreamTelemetryAgent.Services
         {
             Tray.TrayMouseDoubleClick += (_, __) =>
             {
+                window.ShowInTaskbar = true;
                 window.Show();
                 if (window.WindowState == WindowState.Minimized)
                     window.WindowState = WindowState.Normal;

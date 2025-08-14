@@ -46,6 +46,9 @@ namespace SigstreamTelemetryAgent
                     services.AddSingleton<Services.IOfflineQueue, Services.OfflineQueue>();
                     services.AddSingleton<Services.IToastService, Services.ToastService>();
                     services.AddSingleton<Services.ITrayService, Services.TrayService>();
+                    // App.xaml.cs  ConfigureServices(...)
+                    services.AddSingleton<Services.IStartupService, Services.StartupService>();
+
 
                     // ViewModels
                     services.AddSingleton<ViewModels.MainWindowViewModel>();
@@ -65,8 +68,34 @@ namespace SigstreamTelemetryAgent
 
             HostInstance.Start();
 
+
+
+
+            // App.xaml.cs  (inside OnStartup AFTER HostInstance = ... Build(); HostInstance.Start();)
+            var settingsSvc = HostInstance.Services.GetRequiredService<Services.ISettingsService>();
+            var settings = settingsSvc.Load();
+            // App.xaml.cs  right after 'var settings = settingsSvc.Load();'
+            var startup = HostInstance.Services.GetRequiredService<Services.IStartupService>();
+            startup.SetEnabled(settings.AutoStartOnBoot);
+
             var main = HostInstance.Services.GetRequiredService<Views.MainWindow>();
-            main.Show();
+
+            if (settings.StartMinimized)
+            {
+                // trigger Loaded so VM.Init runs, then hide to tray
+                main.WindowState = WindowState.Minimized;
+                main.ShowInTaskbar = false;
+                main.Show();
+                main.Hide();
+            }
+            else
+            {
+                main.Show();
+            }
+
+
+            //var main = HostInstance.Services.GetRequiredService<Views.MainWindow>();
+            //main.Show();
             base.OnStartup(e);
         }
 
