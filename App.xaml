@@ -11,8 +11,19 @@
 
             <!-- Tray icon resource -->
             <tb:TaskbarIcon x:Key="TrayIcon"
-                      IconSource="pack://application:,,,/SigstreamTelemetryAgent;component/Resources/Icons/app.png"
-                      ToolTipText="SigstreamTelemetryAgent"/>
+                IconSource="pack://application:,,,/SigstreamTelemetryAgent;component/Resources/Icons/app.png"
+                ToolTipText="SigstreamTelemetryAgent">
+                <tb:TaskbarIcon.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Open" Click="TrayOpen_Click"/>
+                        <MenuItem Header="Pause Heartbeat" IsCheckable="True"
+                Checked="TrayPause_Checked" Unchecked="TrayPause_Unchecked"/>
+                        <Separator/>
+                        <MenuItem Header="Exit" Click="TrayExit_Click"/>
+                    </ContextMenu>
+                </tb:TaskbarIcon.ContextMenu>
+            </tb:TaskbarIcon>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>
