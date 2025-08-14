@@ -1,24 +1,35 @@
-﻿using System.Text;
+﻿using System;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using SigstreamTelemetryAgent.ViewModels;   // MainWindowViewModel
+using SigstreamTelemetryAgent.Services;     // ITrayService
 
-namespace SigstreamTelemetryAgent
+namespace SigstreamTelemetryAgent.Views
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
-        public MainWindow()
+        public MainWindow(MainWindowViewModel vm, ITrayService tray)
         {
             InitializeComponent();
+            DataContext = vm;
+
+            Loaded += (_, __) =>
+            {
+                vm.Init(MainFrame);
+                tray.HookWindow(this);
+            };
+        }
+
+        protected override void OnStateChanged(EventArgs e)
+        {
+            base.OnStateChanged(e);
+            if (WindowState == WindowState.Minimized) Hide();
+        }
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            // e.Cancel = true; Hide(); // enable if you want close-to-tray
+            base.OnClosing(e);
         }
     }
 }

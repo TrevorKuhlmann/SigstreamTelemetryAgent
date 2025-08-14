@@ -1,4 +1,5 @@
-﻿// Services/IToastService.cs
+﻿using Notifications.Wpf;
+
 namespace SigstreamTelemetryAgent.Services
 {
     public interface IToastService
@@ -10,8 +11,15 @@ namespace SigstreamTelemetryAgent.Services
 
     public class ToastService : IToastService
     {
-        public void ShowInfo(string message) { /* TODO: implement */ }
-        public void ShowSuccess(string message) { /* TODO */ }
-        public void ShowError(string message) { /* TODO */ }
+        private readonly NotificationManager _mgr = new();
+
+        public void ShowInfo(string message) =>
+            _mgr.Show(new NotificationContent { Title = "SigStream", Message = message, Type = NotificationType.Information });
+
+        public void ShowSuccess(string message) =>
+            _mgr.Show(new NotificationContent { Title = "SigStream", Message = message, Type = NotificationType.Success });
+
+        public void ShowError(string message) =>
+            _mgr.Show(new NotificationContent { Title = "SigStream", Message = message, Type = NotificationType.Error });
     }
 }
