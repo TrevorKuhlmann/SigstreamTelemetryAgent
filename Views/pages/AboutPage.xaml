@@ -1,16 +1,22 @@
-﻿<!-- Views/Pages/AboutPage.xaml (replace content stack if you like) -->
-<Page x:Class="SigstreamTelemetryAgent.Views.Pages.AboutPage"
-      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      Title="About">
-	<StackPanel Margin="24" Width="520">
-		<TextBlock Text="SigstreamTelemetryAgent" FontSize="18" FontWeight="Bold"/>
-		<TextBlock Text="Preferences" Margin="0,16,0,8" FontWeight="SemiBold"/>
-
-		<CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}"/>
-		<CheckBox Content="Start minimized to tray" IsChecked="{Binding StartMinimized}" Margin="0,6,0,0"/>
-
-		<Separator Margin="0,16,0,16"/>
-		<TextBlock Text="Version 0.1" Opacity="0.7"/>
-	</StackPanel>
-</Page>
+﻿<Window  x:Class="SigstreamTelemetryAgent.Views.Pages.AboutPage"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SigStream Agent" Height="700" Width="1080"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Border Background="#111520" Padding="16">
+            <StackPanel>
+                <TextBlock Text="SigStream" FontSize="20" FontWeight="Bold" Margin="0 0 0 12"/>
+                <Button Content="Dashboard" Command="{Binding NavigateDashboard}"/>
+                <Button Content="COM Port" Command="{Binding NavigateComPort}"/>
+                <Button Content="API Config" Command="{Binding NavigateApiConfig}"/>
+                <Button Content="About" Command="{Binding NavigateAbout}"/>
+            </StackPanel>
+        </Border>
+        <Frame Grid.Column="1" x:Name="MainFrame"/>
+    </Grid>
+</Window>

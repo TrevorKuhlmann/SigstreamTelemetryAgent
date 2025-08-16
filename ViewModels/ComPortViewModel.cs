@@ -1,4 +1,6 @@
 ﻿using System.Collections.ObjectModel;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using SigstreamTelemetryAgent.Models;
 using SigstreamTelemetryAgent.Services;
@@ -12,6 +14,10 @@ namespace SigstreamTelemetryAgent.ViewModels
         private readonly IApiClient _api;
         private readonly ISettingsService _settings;
         private readonly IOfflineQueue _queue;
+        private readonly IToastService _toast;
+
+        private CancellationTokenSource? _reconnectCts;
+        private bool _keepConnected;
 
         public ObservableCollection<string> Ports { get; } = new();
         public ObservableCollection<string> RecentLines { get; } = new();
@@ -43,9 +49,13 @@ namespace SigstreamTelemetryAgent.ViewModels
         public ICommand ConnectCommand { get; }
         public ICommand DisconnectCommand { get; }
 
-        public ComPortViewModel(IComPortService com, IApiClient api, ISettingsService settings, IOfflineQueue queue)
+        public ComPortViewModel(IComPortService com,
+                                IApiClient api,
+                                ISettingsService settings,
+                                IOfflineQueue queue,
+                                IToastService toast)
         {
-            _com = com; _api = api; _settings = settings; _queue = queue;
+            _com = com; _api = api; _settings = settings; _queue = queue; _toast = toast;
 
             RefreshPortsCommand = new RelayCommand(_ => RefreshPorts());
             ConnectCommand = new RelayCommand(_ => Connect(), _ => !IsConnected && !string.IsNullOrWhiteSpace(SelectedPort));
@@ -53,6 +63,7 @@ namespace SigstreamTelemetryAgent.ViewModels
 
             RefreshPorts();
 
+            // Data pipeline
             _com.LineReceived += async (_, line) =>
             {
                 App.Current.Dispatcher.Invoke(() =>
@@ -60,7 +71,7 @@ namespace SigstreamTelemetryAgent.ViewModels
                     RecentLines.Insert(0, line.Trim());
                     while (RecentLines.Count > 200) RecentLines.RemoveAt(RecentLines.Count - 1);
                     ReceivedCount++;
-                    PulseRx();
+                    _ = PulseRx();
                 });
 
                 var rec = new TelemetryRecord { Raw = line, ReceivedAtUtc = DateTime.UtcNow };
@@ -77,11 +88,39 @@ namespace SigstreamTelemetryAgent.ViewModels
                 }
                 else
                 {
-                    App.Current.Dispatcher.Invoke(() => { SentCount++; PulseTx(); });
+                    App.Current.Dispatcher.Invoke(() =>
+                    {
+                        SentCount++;
+                        _ = PulseTx();
+                    });
                 }
 
                 App.Current.Dispatcher.Invoke(() => QueueDepth = _queue.EstimateDepth());
             };
+
+            // Resilience: react to errors/drops
+            _com.ConnectionLost += async (_, __) =>
+            {
+                OnPropertyChanged(nameof(IsConnected));
+                ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
+                ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+                if (_keepConnected) await StartReconnectLoopAsync();
+            };
+
+            _com.Error += (_, ex) =>
+            {
+                _toast.ShowError($"COM error: {ex.Message}");
+            };
+
+            // Auto-connect to last known port on startup
+            var st = _settings.Load();
+            if (!string.IsNullOrWhiteSpace(st.SelectedComPort))
+            {
+                SelectedPort = st.SelectedComPort;
+                BaudRate = st.BaudRate;
+                _keepConnected = true;
+                _ = StartReconnectLoopAsync(initialImmediate: true);
+            }
         }
 
         private void RefreshPorts()
@@ -95,28 +134,78 @@ namespace SigstreamTelemetryAgent.ViewModels
         private void Connect()
         {
             if (string.IsNullOrWhiteSpace(SelectedPort)) return;
-            _com.Open(SelectedPort, BaudRate);
-            OnPropertyChanged(nameof(IsConnected));
-            ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
-            ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+
+            try
+            {
+                _com.Open(SelectedPort!, BaudRate);
+                _keepConnected = true;
+
+                // remember last working port/baud
+                var s = _settings.Load();
+                s.SelectedComPort = SelectedPort;
+                s.BaudRate = BaudRate;
+                _settings.Save(s);
+            }
+            catch (Exception ex)
+            {
+                _toast.ShowError($"Failed to open {SelectedPort}: {ex.Message}");
+                _keepConnected = true;
+                _ = StartReconnectLoopAsync(initialImmediate: false);
+            }
+            finally
+            {
+                OnPropertyChanged(nameof(IsConnected));
+                ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
+                ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+            }
         }
 
         private void Disconnect()
         {
+            _keepConnected = false;
+            _reconnectCts?.Cancel();
             _com.Close();
             OnPropertyChanged(nameof(IsConnected));
             ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
             ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
         }
 
-        private async void PulseRx()
+        private async Task StartReconnectLoopAsync(bool initialImmediate = false)
+        {
+            _reconnectCts?.Cancel();
+            _reconnectCts = new CancellationTokenSource();
+            var ct = _reconnectCts.Token;
+
+            int attempt = initialImmediate ? 0 : 1;
+
+            while (_keepConnected && !_com.IsOpen && !ct.IsCancellationRequested && !string.IsNullOrWhiteSpace(SelectedPort))
+            {
+                try
+                {
+                    _com.Open(SelectedPort!, BaudRate);
+                    OnPropertyChanged(nameof(IsConnected));
+                    ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
+                    ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+                    _toast.ShowSuccess($"Reconnected {SelectedPort}.");
+                    break;
+                }
+                catch
+                {
+                    var delay = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, attempt))); // 0s/2/4/8/16/30...
+                    attempt = Math.Max(1, attempt + 1);
+                    try { await Task.Delay(delay, ct); } catch { break; }
+                }
+            }
+        }
+
+        private async Task PulseRx()
         {
             RxPulse = true;
             await Task.Delay(150);
             RxPulse = false;
         }
 
-        private async void PulseTx()
+        private async Task PulseTx()
         {
             TxPulse = true;
             await Task.Delay(150);

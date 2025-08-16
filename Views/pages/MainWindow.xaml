@@ -8,15 +8,21 @@
             <ColumnDefinition Width="220"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
-        <Border Background="#111520" Padding="16">
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0"
+            Background="{StaticResource PanelBrush}"
+            BorderBrush="{StaticResource BorderBrush1}" BorderThickness="0,0,1,0" Padding="16">
             <StackPanel>
-                <TextBlock Text="SigStream" FontSize="20" FontWeight="Bold" Margin="0 0 0 12"/>
-                <Button Content="Dashboard" Command="{Binding NavigateDashboard}"/>
-                <Button Content="COM Port" Command="{Binding NavigateComPort}"/>
-                <Button Content="API Config" Command="{Binding NavigateApiConfig}"/>
+                <TextBlock Text="SigStream" FontSize="20" FontWeight="Bold" Margin="0,0,0,12"/>
+                <Button Content="Dashboard" Command="{Binding NavigateDashboard}" Margin="0,0,0,8"/>
+                <Button Content="COM Port" Command="{Binding NavigateComPort}" Margin="0,0,0,8"/>
+                <Button Content="API Config" Command="{Binding NavigateApiConfig}" Margin="0,0,0,8"/>
                 <Button Content="About" Command="{Binding NavigateAbout}"/>
             </StackPanel>
         </Border>
-        <Frame Grid.Column="1" x:Name="MainFrame"/>
+
+        <!-- Page host -->
+        <Frame Grid.Column="1" x:Name="MainFrame" Background="Transparent"/>
     </Grid>
 </Window>

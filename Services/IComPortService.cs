@@ -8,7 +8,12 @@ namespace SigstreamTelemetryAgent.Services
         IEnumerable<string> GetPorts();
         void Open(string portName, int baudRate);
         void Close();
-        bool IsOpen { get; }                         // NEW
+
+        bool IsOpen { get; }
+        string? CurrentPort { get; }
+
         event EventHandler<string>? LineReceived;
+        event EventHandler? ConnectionLost;           // raised on unexpected drop
+        event EventHandler<Exception>? Error;         // raised on serial errors
     }
 }
