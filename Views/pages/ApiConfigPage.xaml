@@ -1,71 +1,53 @@
 ﻿<Page x:Class="SigstreamTelemetryAgent.Views.Pages.ApiConfigPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      Title="API Config">
-    <Grid Margin="24" Width="560">
-        <StackPanel>
+      Title="API Config"
+      Background="{StaticResource SurfaceBrush}">
+    <StackPanel Margin="24" Width="560">
+        <TextBlock Text="API registration" Style="{StaticResource H2}"/>
 
-            <!-- Registration card -->
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <TextBlock Text="API Registration" FontWeight="Bold" FontSize="16"/>
+        <TextBlock Text="API Key" Margin="0,12,0,4"/>
+        <TextBox Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}"
+             IsEnabled="{Binding InputsEnabled}"/>
 
-                    <StackPanel Orientation="Vertical" Margin="0,12,0,0">
-                        <TextBlock Text="API Key"/>
-                        <TextBox Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,4,0,8" IsEnabled="{Binding InputsEnabled}"/>
-                    </StackPanel>
+        <TextBlock Text="Device Label" Margin="0,12,0,4"/>
+        <TextBox Text="{Binding DeviceLabel, UpdateSourceTrigger=PropertyChanged}"
+             IsEnabled="{Binding InputsEnabled}"/>
 
-                    <StackPanel Orientation="Vertical">
-                        <TextBlock Text="Device Label"/>
-                        <TextBox Text="{Binding DeviceLabel, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,4,0,8" IsEnabled="{Binding InputsEnabled}"/>
-                    </StackPanel>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <Button Style="{StaticResource PrimaryButton}" Content="Register"
-                    Command="{Binding RegisterCommand}" IsEnabled="{Binding InputsEnabled}" Width="120"/>
-                        <Button Content="Revoke" Command="{Binding RevokeCommand}" Margin="8,0,0,0" Width="120"/>
-                    </StackPanel>
-
-                    <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="12">
-                        <StackPanel>
-                            <TextBlock Text="Current device" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding MachineId}" FontFamily="Consolas" FontSize="12" Opacity="0.8"/>
-                            <TextBlock>
-                <Run Text="State: "/>
-                <Run>
-                  <Run.Style>
-                    <Style TargetType="Run">
-                      <Setter Property="Text" Value="Not registered"/>
-                      <Setter Property="Foreground" Value="#FFAAAA"/>
-                      <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsRegistered}" Value="True">
-                          <Setter Property="Text" Value="Registered"/>
-                          <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
-                        </DataTrigger>
-                      </Style.Triggers>
-                    </Style>
-                  </Run.Style>
-                </Run>
-                            </TextBlock>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Border>
-
-            <!-- Heartbeat card -->
-            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Heartbeat" FontWeight="Bold" FontSize="16" Margin="0,0,12,0"/>
-                    <CheckBox Content="Send heartbeats" IsChecked="{Binding SendHeartbeats}"/>
-                    <TextBlock Text="Interval (s):" Margin="16,0,6,0" VerticalAlignment="Center"/>
-                    <TextBox Width="80" Text="{Binding HeartbeatSeconds, UpdateSourceTrigger=PropertyChanged}"/>
-                    <Button Style="{StaticResource PrimaryButton}" Content="Save"
-                  Command="{Binding SaveSettings}" Margin="12,0,0,0" Width="90"/>
-                </StackPanel>
-            </Border>
-
+        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+            <Button Style="{StaticResource PrimaryButton}" Content="Register"
+              Command="{Binding RegisterCommand}" IsEnabled="{Binding InputsEnabled}" Width="120"/>
+            <Button Content="Revoke" Command="{Binding RevokeCommand}" Margin="8,0,0,0" Width="120"/>
         </StackPanel>
-    </Grid>
+
+        <Separator/>
+
+        <TextBlock Text="Current device" Style="{StaticResource H2}"/>
+        <TextBlock Text="{Binding MachineId}" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+        <TextBlock Margin="0,4,0,0">
+      <Run Text="State: "/>
+      <Run Text="Registered">
+        <Run.Style>
+          <Style TargetType="Run">
+            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsRegistered}" Value="True">
+                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Run.Style>
+      </Run>
+        </TextBlock>
+
+        <Separator/>
+
+        <TextBlock Text="Heartbeat" Style="{StaticResource H2}"/>
+        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+            <CheckBox Content="Send heartbeats" IsChecked="{Binding SendHeartbeats}"/>
+            <TextBlock Text="Interval (s):" Margin="16,0,6,0" VerticalAlignment="Center"/>
+            <TextBox Width="80" Text="{Binding HeartbeatSeconds, UpdateSourceTrigger=PropertyChanged}"/>
+            <Button Style="{StaticResource PrimaryButton}" Content="Save" Command="{Binding SaveSettings}" Margin="12,0,0,0" Width="90"/>
+        </StackPanel>
+    </StackPanel>
 </Page>

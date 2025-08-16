@@ -10,10 +10,13 @@
 
   <ItemGroup>
     <None Remove="Resources\Icons\app.png" />
+    <None Remove="Resources\Images\sigstream_mark_32.png" />
+    <None Remove="Resources\Images\sigstream_mark_64.png" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Converters\" />
+    <Folder Include="Resources\NewFolder1\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +36,12 @@
 
   <ItemGroup>
     <Resource Include="Resources\Icons\app.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Images\sigstream_mark_32.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Images\sigstream_mark_64.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>

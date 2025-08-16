@@ -1,28 +1,36 @@
 ﻿<Window x:Class="SigstreamTelemetryAgent.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="SigStream Agent" Height="700" Width="1080"
+        Title="SigStream Agent"
+        Height="700" Width="1080"
+        Icon="/Resources/Icons/app.png"
+        Background="{StaticResource WindowBackgroundBrush}"
         WindowStartupLocation="CenterScreen">
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Sidebar -->
+        <!-- Sidebar: plain white with a thin right divider -->
         <Border Grid.Column="0"
-            Background="{StaticResource PanelBrush}"
-            BorderBrush="{StaticResource BorderBrush1}" BorderThickness="0,0,1,0" Padding="16">
-            <StackPanel>
-                <TextBlock Text="SigStream" FontSize="20" FontWeight="Bold" Margin="0,0,0,12"/>
-                <Button Content="Dashboard" Command="{Binding NavigateDashboard}" Margin="0,0,0,8"/>
-                <Button Content="COM Port" Command="{Binding NavigateComPort}" Margin="0,0,0,8"/>
-                <Button Content="API Config" Command="{Binding NavigateApiConfig}" Margin="0,0,0,8"/>
-                <Button Content="About" Command="{Binding NavigateAbout}"/>
+            Background="{StaticResource SurfaceBrush}"
+            BorderBrush="{StaticResource BorderBrush1}"
+            BorderThickness="0,0,1,0">
+            <StackPanel Margin="18">
+                <TextBlock Text="SigStream" Style="{StaticResource H1}" Margin="0,0,0,12"/>
+                <Button Style="{StaticResource SidebarButton}" Content="Dashboard" Command="{Binding NavigateDashboard}"/>
+                <Button Style="{StaticResource SidebarButton}" Content="COM Port"  Command="{Binding NavigateComPort}"/>
+                <Button Style="{StaticResource SidebarButton}" Content="API Config" Command="{Binding NavigateApiConfig}"/>
+                <Button Style="{StaticResource SidebarButton}" Content="About"     Command="{Binding NavigateAbout}"/>
             </StackPanel>
         </Border>
 
         <!-- Page host -->
-        <Frame Grid.Column="1" x:Name="MainFrame" Background="Transparent"/>
+        <Frame Grid.Column="1"
+           x:Name="MainFrame"
+           Background="{StaticResource SurfaceBrush}"
+           NavigationUIVisibility="Hidden"/>
     </Grid>
 </Window>
