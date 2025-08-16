@@ -1,5 +1,4 @@
-﻿// Services/OfflineQueue.cs fdfgfdgdfg
-using SigstreamTelemetryAgent.Models;
+﻿using SigstreamTelemetryAgent.Models;
 using System.IO;
 using System.Text.Json;
 
@@ -34,6 +33,16 @@ namespace SigstreamTelemetryAgent.Services
                 if (!ok) keep.Add(line);
             }
             await File.WriteAllLinesAsync(_path, keep);
+        }
+
+        public int EstimateDepth()
+        {
+            if (!File.Exists(_path)) return 0;
+            // count lines cheaply
+            var count = 0;
+            using var sr = File.OpenText(_path);
+            while (sr.ReadLine() is not null) count++;
+            return count;
         }
     }
 }

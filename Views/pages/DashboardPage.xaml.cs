@@ -1,5 +1,4 @@
-﻿// Views/Pages/DashboardPage.xaml.cs
-using System.Windows.Controls;
+﻿using System.Windows.Controls;
 
 namespace SigstreamTelemetryAgent.Views.Pages
 {

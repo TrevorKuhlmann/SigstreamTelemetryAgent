@@ -1,5 +1,4 @@
-﻿// Services/IOfflineQueue.cs
-using SigstreamTelemetryAgent.Models;
+﻿using SigstreamTelemetryAgent.Models;
 
 namespace SigstreamTelemetryAgent.Services
 {
@@ -7,5 +6,6 @@ namespace SigstreamTelemetryAgent.Services
     {
         void Enqueue(TelemetryRecord record);
         Task FlushAsync(string apiKey, string machineId, Func<TelemetryRecord, Task<bool>> send);
+        int EstimateDepth();                                  // NEW
     }
 }

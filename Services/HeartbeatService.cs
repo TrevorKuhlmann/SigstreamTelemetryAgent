@@ -1,10 +1,31 @@
 ﻿// Services/HeartbeatService.cs
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+// Use the timers we actually want:
+using Timer = System.Timers.Timer;
+using ElapsedEventArgs = System.Timers.ElapsedEventArgs;
+
 namespace SigstreamTelemetryAgent.Services
 {
+    public sealed class HeartbeatEventArgs : EventArgs
+    {
+        public DateTime Utc { get; }
+        public bool Success { get; }
+        public HeartbeatEventArgs(DateTime utc, bool success) { Utc = utc; Success = success; }
+    }
+
     public class HeartbeatService : IHeartbeatService
     {
-        private readonly IApiClient _api; private readonly ISettingsService _settings; private System.Timers.Timer? _timer;
+        private readonly IApiClient _api;
+        private readonly ISettingsService _settings;
+        private Timer? _timer;
+        private Models.AppSettings? _current;          // for the elapsed handler
+        private readonly SemaphoreSlim _gate = new(1, 1);
+
         public event EventHandler<bool>? RevokedChanged;
+        public event EventHandler<HeartbeatEventArgs>? Beat;
 
         public HeartbeatService(IApiClient api, ISettingsService settings)
         { _api = api; _settings = settings; }
@@ -13,14 +34,35 @@ namespace SigstreamTelemetryAgent.Services
         {
             Stop();
             if (!s.SendHeartbeats || string.IsNullOrWhiteSpace(s.ApiKey) || string.IsNullOrWhiteSpace(s.MachineId)) return;
-            _timer = new System.Timers.Timer(Math.Max(5, s.HeartbeatSeconds) * 1000);
-            _timer.Elapsed += async (_, __) => await TickAsync(s);
+
+            _current = s;
+            _timer = new Timer(Math.Max(5, s.HeartbeatSeconds) * 1000);
+            _timer.Elapsed += OnTimerElapsed;          // named handler = easy unsubscribe
             _timer.AutoReset = true;
             _timer.Start();
-            _ = TickAsync(s); // immediate first beat
+
+            _ = TickAsync(s);                           // immediate first beat
         }
 
-        public void Stop() { _timer?.Stop(); _timer?.Dispose(); _timer = null; }
+        public void Stop()
+        {
+            if (_timer != null)
+            {
+                _timer.Elapsed -= OnTimerElapsed;
+                _timer.Stop();
+                _timer.Dispose();
+                _timer = null;
+            }
+        }
+
+        private async void OnTimerElapsed(object? sender, ElapsedEventArgs e)
+        {
+            if (_current == null) return;
+            if (!await _gate.WaitAsync(0)) return;      // skip if a tick is still running
+            try { await TickAsync(_current); }
+            catch { /* swallow to avoid crashing the timer thread */ }
+            finally { _gate.Release(); }
+        }
 
         private async Task TickAsync(Models.AppSettings s)
         {
@@ -31,7 +73,9 @@ namespace SigstreamTelemetryAgent.Services
                 Stop();
                 return;
             }
-            await _api.SendHeartbeatAsync(s.ApiKey!, s.MachineId!);
+
+            var ok = await _api.SendHeartbeatAsync(s.ApiKey!, s.MachineId!);
+            Beat?.Invoke(this, new HeartbeatEventArgs(DateTime.UtcNow, ok));
         }
     }
 }

@@ -10,8 +10,8 @@ namespace SigstreamTelemetryAgent.Services
         private SerialPort? _port;
         public event EventHandler<string>? LineReceived;
 
-        public IEnumerable<string> GetPorts() =>
-            SerialPort.GetPortNames().OrderBy(n => n);
+        public bool IsOpen => _port?.IsOpen == true;                 // NEW
+        public IEnumerable<string> GetPorts() => SerialPort.GetPortNames().OrderBy(n => n);
 
         public void Open(string portName, int baudRate)
         {
@@ -29,10 +29,7 @@ namespace SigstreamTelemetryAgent.Services
                 if (!string.IsNullOrEmpty(line))
                     LineReceived?.Invoke(this, line);
             }
-            catch
-            {
-                // swallow framing/partial reads
-            }
+            catch { /* ignore framing/partial reads */ }
         }
 
         public void Close()

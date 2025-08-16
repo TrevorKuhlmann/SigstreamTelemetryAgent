@@ -1,4 +1,5 @@
 ﻿// Services/IHeartbeatService.cs
+using System;
 using SigstreamTelemetryAgent.Models;
 
 namespace SigstreamTelemetryAgent.Services
@@ -7,6 +8,9 @@ namespace SigstreamTelemetryAgent.Services
     {
         void Start(AppSettings settings);
         void Stop();
+
+        // events exposed to consumers
         event EventHandler<bool>? RevokedChanged;
+        event EventHandler<HeartbeatEventArgs>? Beat;   // <— add this
     }
 }

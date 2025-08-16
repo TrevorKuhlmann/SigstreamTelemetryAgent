@@ -1,17 +1,42 @@
-﻿// Helpers/AsyncCommand.cs
+﻿using System;
+using System.Threading.Tasks;
+using System.Windows.Input;
+
 namespace SigstreamTelemetryAgent.Helpers
 {
-    public class AsyncCommand : System.Windows.Input.ICommand
+    public sealed class AsyncCommand : ICommand
     {
-        private readonly Func<Task> _run; private bool _busy;
-        public event EventHandler? CanExecuteChanged;
-        public AsyncCommand(Func<Task> run) { _run = run; }
-        public bool CanExecute(object? p) => !_busy;
-        public async void Execute(object? p)
+        private readonly Func<Task> _execute;
+        private readonly Func<bool>? _canExecute;
+        private bool _isExecuting;
+
+        public AsyncCommand(Func<Task> execute, Func<bool>? canExecute = null)
         {
-            _busy = true; CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-            try { await _run(); }
-            finally { _busy = false; CanExecuteChanged?.Invoke(this, EventArgs.Empty); }
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            _canExecute = canExecute;
         }
+
+        public bool CanExecute(object? parameter) =>
+            !_isExecuting && (_canExecute?.Invoke() ?? true);
+
+        public async void Execute(object? parameter)
+        {
+            if (!CanExecute(parameter)) return;
+            try
+            {
+                _isExecuting = true;
+                RaiseCanExecuteChanged();
+                await _execute();
+            }
+            finally
+            {
+                _isExecuting = false;
+                RaiseCanExecuteChanged();
+            }
+        }
+
+        public event EventHandler? CanExecuteChanged;
+        public void RaiseCanExecuteChanged() =>
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 }
