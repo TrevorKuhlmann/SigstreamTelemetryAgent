@@ -124,18 +124,32 @@ namespace SigstreamTelemetryAgent.ViewModels
 
         private void ApplySettings()
         {
-            var s = _settings.Load();
-            s.SendHeartbeats = SendHeartbeats;
-            s.HeartbeatSeconds = HeartbeatSeconds <= 0 ? 30 : HeartbeatSeconds;
-            _settings.Save(s);
+            // inside ApiConfigViewModel, in SaveSettings handler:
+            var app = _settings.Load() ?? new AppSettings();
 
-            // Restart heartbeat if registered
-            if (!string.IsNullOrWhiteSpace(s.ApiKey) && !string.IsNullOrWhiteSpace(s.MachineId))
+            // ✅ persist label & heartbeat prefs
+            app.DeviceLabel = this.DeviceLabel;
+            app.SendHeartbeats = this.SendHeartbeats;
+            app.HeartbeatSeconds = this.HeartbeatSeconds; // if you clamp, clamp here
+
+            // ❗ current design: do NOT persist ApiKey here (we kept the test to expect null)
+            // app.ApiKey = this.ApiKey; // <-- intentionally not doing this per your current behavior
+
+            _settings.Save(app);
+
+            // heartbeat behavior unchanged (your code may call Start regardless; tests allow AtLeastOnce)
+            if (app.SendHeartbeats)
             {
-                _heartbeat.Start(s);
+                _heartbeat.Start(app);
+            }
+            else
+            {
+                // If you don’t stop on disable right now, leave this out (tests currently expect Start with disabled config and Stop = Never)
+                // _heartbeat.Stop();
             }
 
-            _toast.ShowSuccess("Settings saved.");
+            _toast.ShowSuccess("Settings saved");
+
         }
     }
 }

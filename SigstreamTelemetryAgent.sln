@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36310.24
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SigstreamTelemetryAgent", "SigstreamTelemetryAgent.csproj", "{D3CA6031-E877-4AA2-9D20-7FD62D4FD13B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SigstreamTelemetryAgent.Tests", "..\SigstreamTelemetryAgent.Tests\SigstreamTelemetryAgent.Tests.csproj", "{5F3D3AF1-9446-4025-8B4F-D2E894D66433}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{D3CA6031-E877-4AA2-9D20-7FD62D4FD13B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D3CA6031-E877-4AA2-9D20-7FD62D4FD13B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D3CA6031-E877-4AA2-9D20-7FD62D4FD13B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5F3D3AF1-9446-4025-8B4F-D2E894D66433}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5F3D3AF1-9446-4025-8B4F-D2E894D66433}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5F3D3AF1-9446-4025-8B4F-D2E894D66433}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5F3D3AF1-9446-4025-8B4F-D2E894D66433}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
