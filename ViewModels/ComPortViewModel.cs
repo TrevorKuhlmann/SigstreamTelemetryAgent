@@ -23,7 +23,7 @@ namespace SigstreamTelemetryAgent.ViewModels
         public ObservableCollection<string> RecentLines { get; } = new();
 
         private string? _selectedPort;
-        public string? SelectedPort { get => _selectedPort; set { _selectedPort = value; OnPropertyChanged(); } }
+        public string? SelectedPort { get => _selectedPort; set { _selectedPort = value; OnPropertyChanged(); ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged(); } }
 
         private int _baudRate = 9600;
         public int BaudRate { get => _baudRate; set { _baudRate = value; OnPropertyChanged(); } }
@@ -62,6 +62,18 @@ namespace SigstreamTelemetryAgent.ViewModels
             DisconnectCommand = new RelayCommand(_ => Disconnect(), _ => IsConnected);
 
             RefreshPorts();
+
+            // --- Listen for global registration changes (revocation -> reset UI immediately)
+            var mainObj = App.HostInstance.Services.GetService(typeof(MainWindowViewModel));
+            if (mainObj is MainWindowViewModel main)
+            {
+                main.RegistrationChanged += (_, __) =>
+                {
+                    // If we are no longer registered, drop to base state
+                    if (!main.IsRegistered)
+                        ResetToDefault();
+                };
+            }
 
             // Data pipeline
             _com.LineReceived += async (_, line) =>
@@ -123,11 +135,37 @@ namespace SigstreamTelemetryAgent.ViewModels
             }
         }
 
+        // --- called when registration is cleared (revocation or manual) ---
+        public void ResetToDefault()
+        {
+            try
+            {
+                _keepConnected = false;
+                _reconnectCts?.Cancel();
+                if (_com.IsOpen) _com.Close();
+            }
+            catch { /* ignore */ }
+
+            SelectedPort = null;
+            ReceivedCount = 0;
+            SentCount = 0;
+            QueueDepth = _queue.EstimateDepth();
+
+            Ports.Clear();
+            foreach (var p in _com.GetPorts()) Ports.Add(p);
+
+            OnPropertyChanged(nameof(IsConnected));
+            ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
+            ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+        }
+
         private void RefreshPorts()
         {
             Ports.Clear();
             foreach (var p in _com.GetPorts()) Ports.Add(p);
             OnPropertyChanged(nameof(IsConnected));
+            ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
+            ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
             QueueDepth = _queue.EstimateDepth();
         }
 

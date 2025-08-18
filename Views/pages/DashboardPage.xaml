@@ -21,20 +21,23 @@
             <StackPanel Grid.Column="0">
                 <TextBlock Text="Registration" Style="{StaticResource H2}"/>
                 <TextBlock>
-          <Run Text="Status: "/>
-          <Run Text="Registered">
-            <Run.Style>
-              <Style TargetType="Run">
-                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding IsRegistered}" Value="True">
-                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </Run.Style>
-          </Run>
+  <Run Text="Status: "/>
+  <!-- Default = Not registered (red). When IsRegistered==true, flip text + color -->
+  <Run Text="Not registered">
+    <Run.Style>
+      <Style TargetType="Run">
+        <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding IsRegistered}" Value="True">
+            <Setter Property="Text" Value="Registered"/>
+            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+    </Run.Style>
+  </Run>
                 </TextBlock>
+
                 <TextBlock Text="{Binding MachineId}" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
             </StackPanel>
 

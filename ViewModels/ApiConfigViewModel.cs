@@ -1,4 +1,6 @@
-﻿using System.Windows.Input;
+﻿using System.Threading.Tasks;
+using System.Windows;               // for Application.Current.Dispatcher
+using System.Windows.Input;
 using SigstreamTelemetryAgent.Services;
 using SigstreamTelemetryAgent.Helpers;
 using SigstreamTelemetryAgent.Models;
@@ -24,19 +26,19 @@ namespace SigstreamTelemetryAgent.ViewModels
         {
             _main = main; _api = api; _settings = settings; _toast = toast; _heartbeat = heartbeat; _queue = queue;
 
-            var s = _settings.Load();
-            ApiKey = s.ApiKey ?? string.Empty;
-            DeviceLabel = s.DeviceLabel ?? string.Empty;
-            MachineId = s.MachineId ?? string.Empty;
-            SendHeartbeats = s.SendHeartbeats;
-            HeartbeatSeconds = s.HeartbeatSeconds;
+            // initial state
+            SyncFromSettings();
 
-            _main.RegistrationChanged += (_, __) =>
+            // when Main says registration changed (e.g., other pages updated), reflect it here
+            _main.RegistrationChanged += (_, __) => SyncFromSettings();
+
+            // when heartbeat detects server revocation → reset immediately
+            _heartbeat.RevokedChanged += (_, __) =>
             {
-                OnPropertyChanged(nameof(IsRegistered));
-                OnPropertyChanged(nameof(InputsEnabled));
-                var ss = _settings.Load();
-                MachineId = ss.MachineId ?? string.Empty;
+                // Clear UI & enable inputs immediately
+                ResetToDefaultUi();
+                _toast.ShowInfo("API key revoked. Please register again.");
+                _main.RaiseRegistrationChanged();
             };
 
             RegisterCommand = new AsyncCommand(RegisterAsync, () => !IsRegistered);
@@ -76,6 +78,49 @@ namespace SigstreamTelemetryAgent.ViewModels
         public ICommand RevokeCommand { get; }
         public ICommand SaveSettings { get; }
 
+        // ---------------- helpers ----------------
+
+        private void SyncFromSettings()
+        {
+            var s = _settings.Load();
+            ApiKey = s.ApiKey ?? string.Empty;
+            DeviceLabel = s.DeviceLabel ?? string.Empty;
+            MachineId = s.MachineId ?? string.Empty;
+            SendHeartbeats = s.SendHeartbeats;
+            HeartbeatSeconds = s.HeartbeatSeconds;
+
+            OnPropertyChanged(nameof(IsRegistered));
+            OnPropertyChanged(nameof(InputsEnabled));
+            RequeryCommands();
+        }
+
+        private void ResetToDefaultUi()
+        {
+            // Clear local fields to base state
+            ApiKey = string.Empty;
+            MachineId = string.Empty;
+            SendHeartbeats = false;
+
+            OnPropertyChanged(nameof(IsRegistered));
+            OnPropertyChanged(nameof(InputsEnabled));
+            RequeryCommands();
+        }
+
+        private static void RequeryCommands()
+        {
+            // Ensure buttons (Register/Revoke) re-evaluate CanExecute immediately
+            try
+            {
+                Application.Current?.Dispatcher?.Invoke(CommandManager.InvalidateRequerySuggested);
+            }
+            catch
+            {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        // ---------------- actions ----------------
+
         private async Task RegisterAsync()
         {
             var key = (ApiKey ?? string.Empty).Trim();
@@ -101,13 +146,15 @@ namespace SigstreamTelemetryAgent.ViewModels
 
             MachineId = s.MachineId!;
             _toast.ShowSuccess("Registered successfully.");
-            _main.RaiseRegistrationChanged();
+            _main.RaiseRegistrationChanged();   // notify all pages/header
 
-            // start heartbeat with latest settings
-            _heartbeat.Start(s);
+            _heartbeat.Start(s);                // start heartbeat with latest settings
 
             // try flush queued telemetry
             await _queue.FlushAsync(s.ApiKey!, s.MachineId!, rec => _api.SendDataAsync(s.ApiKey!, s.MachineId!, rec));
+
+            // local UI refresh (enables/disables buttons)
+            SyncFromSettings();
         }
 
         private void Revoke()
@@ -115,41 +162,34 @@ namespace SigstreamTelemetryAgent.ViewModels
             var s = _settings.Load();
             s.ApiKey = null;
             s.MachineId = null;
+            s.SendHeartbeats = false;
             _settings.Save(s);
 
             _heartbeat.Stop();
+            ResetToDefaultUi();
             _toast.ShowInfo("Credentials cleared. Inputs are re-enabled.");
             _main.RaiseRegistrationChanged();
         }
 
         private void ApplySettings()
         {
-            // inside ApiConfigViewModel, in SaveSettings handler:
             var app = _settings.Load() ?? new AppSettings();
 
-            // ✅ persist label & heartbeat prefs
             app.DeviceLabel = this.DeviceLabel;
             app.SendHeartbeats = this.SendHeartbeats;
-            app.HeartbeatSeconds = this.HeartbeatSeconds; // if you clamp, clamp here
+            app.HeartbeatSeconds = this.HeartbeatSeconds;
 
-            // ❗ current design: do NOT persist ApiKey here (we kept the test to expect null)
-            // app.ApiKey = this.ApiKey; // <-- intentionally not doing this per your current behavior
-
+            // Intentionally NOT persisting ApiKey here (matches your current behavior)
             _settings.Save(app);
 
-            // heartbeat behavior unchanged (your code may call Start regardless; tests allow AtLeastOnce)
-            if (app.SendHeartbeats)
-            {
+            if (app.SendHeartbeats && !string.IsNullOrWhiteSpace(app.ApiKey) && !string.IsNullOrWhiteSpace(app.MachineId))
                 _heartbeat.Start(app);
-            }
             else
-            {
-                // If you don’t stop on disable right now, leave this out (tests currently expect Start with disabled config and Stop = Never)
-                // _heartbeat.Stop();
-            }
+                _heartbeat.Stop();
 
             _toast.ShowSuccess("Settings saved");
-
+            // reflect current state in header / other pages
+            _main.RaiseRegistrationChanged();
         }
     }
 }

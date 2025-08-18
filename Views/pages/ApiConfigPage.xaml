@@ -16,8 +16,7 @@
 
         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
             <Button Style="{StaticResource PrimaryButton}" Content="Register"
-              Command="{Binding RegisterCommand}" IsEnabled="{Binding InputsEnabled}" Width="120"/>
-            <Button Content="Revoke" Command="{Binding RevokeCommand}" Margin="8,0,0,0" Width="120"/>
+          Command="{Binding RegisterCommand}" IsEnabled="{Binding InputsEnabled}" Width="120"/>
         </StackPanel>
 
         <Separator/>
@@ -25,20 +24,22 @@
         <TextBlock Text="Current device" Style="{StaticResource H2}"/>
         <TextBlock Text="{Binding MachineId}" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
         <TextBlock Margin="0,4,0,0">
-      <Run Text="State: "/>
-      <Run Text="Registered">
-        <Run.Style>
-          <Style TargetType="Run">
-            <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
-            <Style.Triggers>
-              <DataTrigger Binding="{Binding IsRegistered}" Value="True">
-                <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
-              </DataTrigger>
-            </Style.Triggers>
-          </Style>
-        </Run.Style>
-      </Run>
+  <Run Text="State: "/>
+  <Run Text="Not registered">
+    <Run.Style>
+      <Style TargetType="Run">
+        <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding IsRegistered}" Value="True">
+            <Setter Property="Text" Value="Registered"/>
+            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+    </Run.Style>
+  </Run>
         </TextBlock>
+
 
         <Separator/>
 

@@ -15,11 +15,20 @@
 
         <!-- Sidebar: plain white with a thin right divider -->
         <Border Grid.Column="0"
-            Background="{StaticResource SurfaceBrush}"
-            BorderBrush="{StaticResource BorderBrush1}"
-            BorderThickness="0,0,1,0">
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush1}"
+                BorderThickness="0,0,1,0">
             <StackPanel Margin="18">
                 <TextBlock Text="SigStream" Style="{StaticResource H1}" Margin="0,0,0,12"/>
+
+                <!-- ▼▼▼ ADDED: status line ▼▼▼ --><!--
+                <TextBlock Margin="0,0,0,12">
+  <Run Text="Status: " />
+  <Run Text="{Binding RegistrationStatusText, Mode=OneWay}"
+       Foreground="{Binding RegistrationStatusBrush, Mode=OneWay}" />
+                </TextBlock>
+                --><!-- ▲▲▲ ADDED: status line ▲▲▲ -->
+
                 <Button Style="{StaticResource SidebarButton}" Content="Dashboard" Command="{Binding NavigateDashboard}"/>
                 <Button Style="{StaticResource SidebarButton}" Content="COM Port"  Command="{Binding NavigateComPort}"/>
                 <Button Style="{StaticResource SidebarButton}" Content="API Config" Command="{Binding NavigateApiConfig}"/>
@@ -29,8 +38,8 @@
 
         <!-- Page host -->
         <Frame Grid.Column="1"
-           x:Name="MainFrame"
-           Background="{StaticResource SurfaceBrush}"
-           NavigationUIVisibility="Hidden"/>
+               x:Name="MainFrame"
+               Background="{StaticResource SurfaceBrush}"
+               NavigationUIVisibility="Hidden"/>
     </Grid>
 </Window>

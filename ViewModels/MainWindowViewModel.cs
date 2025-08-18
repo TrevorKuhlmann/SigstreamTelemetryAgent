@@ -5,6 +5,8 @@ using SigstreamTelemetryAgent.Services;
 using SigstreamTelemetryAgent.Helpers;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media; // Brush/Brushes
+using System.Threading.Tasks;
 
 namespace SigstreamTelemetryAgent.ViewModels
 {
@@ -19,6 +21,10 @@ namespace SigstreamTelemetryAgent.ViewModels
         public AppSettings Settings { get; }
         public bool IsRegistered => !string.IsNullOrWhiteSpace(Settings.ApiKey) && !string.IsNullOrWhiteSpace(Settings.MachineId);
 
+        // Header/status bindables
+        public string RegistrationStatusText => IsRegistered ? "Registered" : "Not registered";
+        public Brush RegistrationStatusBrush => IsRegistered ? Brushes.Green : Brushes.Red;
+
         public ICommand NavigateDashboard { get; }
         public ICommand NavigateComPort { get; }
         public ICommand NavigateApiConfig { get; }
@@ -26,13 +32,13 @@ namespace SigstreamTelemetryAgent.ViewModels
 
         public event EventHandler? RegistrationChanged;
 
-
         public void RaiseRegistrationChanged()
         {
-            RegistrationChanged?.Invoke(this, EventArgs.Empty);
+            RegistrationChanged?.Invoke(this, System.EventArgs.Empty);
             OnPropertyChanged(nameof(IsRegistered));
+            OnPropertyChanged(nameof(RegistrationStatusText));
+            OnPropertyChanged(nameof(RegistrationStatusBrush));
         }
-
 
         public MainWindowViewModel(ISettingsService settings, IApiClient api, IHeartbeatService heartbeat, ITrayService tray)
         {
@@ -44,12 +50,22 @@ namespace SigstreamTelemetryAgent.ViewModels
             NavigateApiConfig = new RelayCommand(_ => NavigateTo<Views.Pages.ApiConfigPage>());
             NavigateAbout = new RelayCommand(_ => NavigateTo<Views.Pages.AboutPage>());
 
-            _heartbeat.RevokedChanged += async (_, revoked) => { if (revoked) await HandleRevocationAsync("Server reported revocation."); };
+            // On server revocation → stop, clear UI, jump to API config
+            _heartbeat.RevokedChanged += async (_, revoked) =>
+            {
+                if (revoked) await HandleRevocationAsync("Server reported revocation.");
+            };
 
             if (IsRegistered) _ = CheckRegistrationAndStartAsync();
         }
 
-        public void Init(Frame frame) { _frame = frame; NavigateTo<Views.Pages.DashboardPage>(); }
+        public void Init(Frame frame)
+        {
+            _frame = frame;
+            // Default page: API Config if not registered, else Dashboard
+            if (IsRegistered) NavigateTo<Views.Pages.DashboardPage>();
+            else NavigateTo<Views.Pages.ApiConfigPage>();
+        }
 
         private void NavigateTo<T>() where T : Page
         {
@@ -70,11 +86,25 @@ namespace SigstreamTelemetryAgent.ViewModels
 
         public async Task HandleRevocationAsync(string reason)
         {
-            Settings.ApiKey = null; Settings.MachineId = null;
-            _settings.Save(Settings);
-            _tray.ShowInfoToast($"Access revoked: {reason}");
-            RegistrationChanged?.Invoke(this, EventArgs.Empty);
-            OnPropertyChanged(nameof(IsRegistered));
+            // Ensure all UI-bound changes happen on the WPF UI thread
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                // stop heartbeats first
+                _heartbeat.Stop();
+
+                // clear credentials and persist
+                Settings.ApiKey = null;
+                Settings.MachineId = null;
+                Settings.SendHeartbeats = false;
+                _settings.Save(Settings);
+
+                // toast + notify + refresh header bindings
+                _tray.ShowInfoToast($"Access revoked: {reason}");
+                RaiseRegistrationChanged();
+
+                // navigate user to API config so they can re-register immediately
+                NavigateApiConfig?.Execute(null);
+            });
         }
     }
 }
