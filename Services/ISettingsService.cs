@@ -1,4 +1,4 @@
-﻿// Services/ISettingsService.cs
+﻿using System;
 using SigstreamTelemetryAgent.Models;
 
 namespace SigstreamTelemetryAgent.Services
@@ -8,5 +8,8 @@ namespace SigstreamTelemetryAgent.Services
         AppSettings Load();
         void Save(AppSettings settings);
         string SettingsPath { get; }
+
+        // 🔔 Raised whenever settings are saved/changed
+        event EventHandler? SettingsChanged;
     }
 }

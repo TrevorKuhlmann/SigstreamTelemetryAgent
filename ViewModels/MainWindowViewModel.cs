@@ -18,7 +18,7 @@ namespace SigstreamTelemetryAgent.ViewModels
         private readonly IHeartbeatService _heartbeat;
         private readonly ITrayService _tray;
         private Frame? _frame;
-
+        public bool InputsEnabled => !IsRegistered;
         public AppSettings Settings { get; }
         public bool IsRegistered => !string.IsNullOrWhiteSpace(Settings.ApiKey) && !string.IsNullOrWhiteSpace(Settings.MachineId);
 
@@ -41,6 +41,25 @@ namespace SigstreamTelemetryAgent.ViewModels
             _tray = tray;
 
             Settings = _settings.Load();
+
+            // 🔗 React to ANY settings mutation (register/revoke/label/heartbeat toggles)
+            // This ensures UI flips immediately without restarting the app.
+            _settings.SettingsChanged += (_, __) =>
+            {
+                // Start/stop heartbeat based on current registration state
+                if (IsRegistered)
+                {
+                    // Safe-start (idempotent) — starts only if not already running
+                    _heartbeat.Start(Settings);
+                }
+                else
+                {
+                    _heartbeat.Stop();
+                }
+
+                // Notify UI + commands
+                RaiseRegistrationChanged();
+            };
 
             NavigateDashboard = new RelayCommand(_ => NavigateTo<Views.Pages.DashboardPage>());
             NavigateComPort = new RelayCommand(_ => NavigateTo<Views.Pages.ComPortPage>());
@@ -89,6 +108,7 @@ namespace SigstreamTelemetryAgent.ViewModels
                 OnPropertyChanged(nameof(IsRegistered));
                 OnPropertyChanged(nameof(RegistrationStatusText));
                 OnPropertyChanged(nameof(RegistrationStatusBrush));
+                OnPropertyChanged(nameof(InputsEnabled)); // <-- add this
 
                 RegistrationChanged?.Invoke(this, EventArgs.Empty);
 
@@ -106,16 +126,21 @@ namespace SigstreamTelemetryAgent.ViewModels
             var disp = System.Windows.Application.Current?.Dispatcher;
             void DoRevoke()
             {
+                // Stop heartbeat first to prevent races
                 _heartbeat.Stop();
 
+                // Clear credentials and persist
                 Settings.ApiKey = null;
                 Settings.MachineId = null;
                 Settings.SendHeartbeats = false;
-                _settings.Save(Settings);
+                _settings.Save(Settings); // triggers SettingsChanged → UI updates
 
                 _tray.ShowInfoToast($"Access revoked: {reason}");
 
+                // Extra safety (SettingsChanged also calls this)
                 RaiseRegistrationChanged();
+
+                // Return user to API Config so inputs are enabled
                 NavigateApiConfig?.Execute(null);
             }
 

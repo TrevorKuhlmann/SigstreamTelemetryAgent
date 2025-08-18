@@ -24,20 +24,11 @@
         <TextBlock Text="Current device" Style="{StaticResource H2}"/>
         <TextBlock Text="{Binding MachineId}" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
         <TextBlock Margin="0,4,0,0">
-  <Run Text="State: "/>
-  <Run Text="Not registered">
-    <Run.Style>
-      <Style TargetType="Run">
-        <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
-        <Style.Triggers>
-          <DataTrigger Binding="{Binding IsRegistered}" Value="True">
-            <Setter Property="Text" Value="Registered"/>
-            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
-          </DataTrigger>
-        </Style.Triggers>
-      </Style>
-    </Run.Style>
-  </Run>
+<StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+  <TextBlock Text="State: " />
+  <TextBlock Text="{Binding RegistrationStatusText, Mode=OneWay}"
+             Foreground="{Binding RegistrationStatusBrush, Mode=OneWay}" />
+</StackPanel>
         </TextBlock>
 
 

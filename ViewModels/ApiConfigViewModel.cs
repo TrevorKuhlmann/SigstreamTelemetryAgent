@@ -5,11 +5,17 @@ using System.Windows.Input;
 using SigstreamTelemetryAgent.Services;
 using SigstreamTelemetryAgent.Helpers;
 using SigstreamTelemetryAgent.Models;
+using System.Windows.Media;
 
 namespace SigstreamTelemetryAgent.ViewModels
 {
     public class ApiConfigViewModel : BaseViewModel
     {
+
+        public string RegistrationStatusText => _main.RegistrationStatusText;
+        public System.Windows.Media.Brush RegistrationStatusBrush => _main.RegistrationStatusBrush;
+
+
         private readonly MainWindowViewModel _main;
         private readonly IApiClient _api;
         private readonly ISettingsService _settings;
@@ -39,8 +45,10 @@ namespace SigstreamTelemetryAgent.ViewModels
             SendHeartbeats = s.SendHeartbeats;
             HeartbeatSeconds = s.HeartbeatSeconds;
 
-            RegisterCommand = new AsyncCommand(RegisterAsync, () => !IsRegistered);
-            RevokeCommand = new RelayCommand(_ => Revoke(), _ => IsRegistered); // button removed in XAML; harmless to keep
+            // Commands
+
+            RegisterCommand = new AsyncCommand(RegisterAsync, CanRegister);
+            RevokeCommand = new RelayCommand(_ => Revoke(), _ => IsRegistered); // harmless to keep
             SaveSettings = new RelayCommand(_ => ApplySettings());
 
             // Keep this page instantly in sync with app-level registration changes
@@ -52,62 +60,68 @@ namespace SigstreamTelemetryAgent.ViewModels
                 OnPropertyChanged(nameof(IsRegistered));
                 OnPropertyChanged(nameof(InputsEnabled));
 
-                // Re-evaluate buttons immediately
-                RequeryCommands();
+                OnPropertyChanged(nameof(RegistrationStatusText));   // <-- add
+                OnPropertyChanged(nameof(RegistrationStatusBrush));  // <-- add
+
+                RaiseCommandStates();
             };
         }
 
         // Bindables
+        private string _apiKey = string.Empty;
         public string ApiKey
         {
             get => _apiKey;
-            set { _apiKey = value; OnPropertyChanged(); }
+            set
+            {
+                if (_apiKey != value)
+                {
+                    _apiKey = value;
+                    OnPropertyChanged();
+                    RaiseCommandStates(); // re-evaluate Register on text change
+                }
+            }
         }
-        private string _apiKey = string.Empty;
 
+        private string _deviceLabel = string.Empty;
         public string DeviceLabel
         {
             get => _deviceLabel;
             set { _deviceLabel = value; OnPropertyChanged(); }
         }
-        private string _deviceLabel = string.Empty;
 
+        private string _machineId = string.Empty;
         public string MachineId
         {
             get => _machineId;
             private set { _machineId = value; OnPropertyChanged(); }
         }
-        private string _machineId = string.Empty;
 
+        private bool _send;
         public bool SendHeartbeats
         {
             get => _send;
             set { _send = value; OnPropertyChanged(); }
         }
-        private bool _send;
 
+        private int _hb = 30;
         public int HeartbeatSeconds
         {
             get => _hb;
             set { _hb = value; OnPropertyChanged(); }
         }
-        private int _hb = 30;
 
-        public bool IsRegistered
-        {
-            get
-            {
-                var s = _settings.Load();
-                return !string.IsNullOrWhiteSpace(s.ApiKey) && !string.IsNullOrWhiteSpace(s.MachineId);
-            }
-        }
-
-        public bool InputsEnabled => !IsRegistered;
+        // Source of truth from shell VM (keeps UI consistent)
+        public bool IsRegistered => _main.IsRegistered;
+        public bool InputsEnabled => _main.InputsEnabled;
 
         // Commands
         public ICommand RegisterCommand { get; }
         public ICommand RevokeCommand { get; }
         public ICommand SaveSettings { get; }
+
+        private bool CanRegister() =>
+            InputsEnabled && !string.IsNullOrWhiteSpace(ApiKey);
 
         private async Task RegisterAsync()
         {
@@ -138,7 +152,7 @@ namespace SigstreamTelemetryAgent.ViewModels
 
             // Notify shell + update command states immediately
             _main.RaiseRegistrationChanged();
-            RequeryCommands();
+            RaiseCommandStates();
 
             // Start heartbeat with latest settings
             _heartbeat.Start(s);
@@ -158,7 +172,7 @@ namespace SigstreamTelemetryAgent.ViewModels
             _toast.ShowInfo("Credentials cleared. Inputs are re-enabled.");
 
             _main.RaiseRegistrationChanged();
-            RequeryCommands();
+            RaiseCommandStates();
         }
 
         private void ApplySettings()
@@ -179,13 +193,14 @@ namespace SigstreamTelemetryAgent.ViewModels
             {
                 _heartbeat.Start(app);
             }
-            // else: leave Stop() to MainWindow revoke path to avoid test regressions
 
             _toast.ShowSuccess("Settings saved");
         }
 
-        private static void RequeryCommands()
+        private void RaiseCommandStates()
         {
+            if (RegisterCommand is AsyncCommand ac) ac.RaiseCanExecuteChanged();
+            if (RevokeCommand is RelayCommand rc) rc.RaiseCanExecuteChanged();
             CommandManager.InvalidateRequerySuggested();
         }
     }

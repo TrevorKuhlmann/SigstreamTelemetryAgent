@@ -21,21 +21,11 @@
             <StackPanel Grid.Column="0">
                 <TextBlock Text="Registration" Style="{StaticResource H2}"/>
                 <TextBlock>
-  <Run Text="Status: "/>
-  <!-- Default = Not registered (red). When IsRegistered==true, flip text + color -->
-  <Run Text="Not registered">
-    <Run.Style>
-      <Style TargetType="Run">
-        <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
-        <Style.Triggers>
-          <DataTrigger Binding="{Binding IsRegistered}" Value="True">
-            <Setter Property="Text" Value="Registered"/>
-            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}"/>
-          </DataTrigger>
-        </Style.Triggers>
-      </Style>
-    </Run.Style>
-  </Run>
+<StackPanel Orientation="Horizontal" Margin="0,4,0,8">
+  <TextBlock Text="State: " />
+  <TextBlock Text="{Binding RegistrationStatusText, Mode=OneWay}"
+             Foreground="{Binding RegistrationStatusBrush, Mode=OneWay}" />
+</StackPanel>
                 </TextBlock>
 
                 <TextBlock Text="{Binding MachineId}" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
@@ -43,20 +33,9 @@
 
             <StackPanel Grid.Column="1">
                 <TextBlock Text="Heartbeat" Style="{StaticResource H2}"/>
-                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <Ellipse Width="8" Height="8" VerticalAlignment="Center">
-                        <Ellipse.Style>
-                            <Style TargetType="Ellipse">
-                                <Setter Property="Fill" Value="{StaticResource DangerBrush}"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding LastHeartbeatOk}" Value="True">
-                                        <Setter Property="Fill" Value="{StaticResource SuccessBrush}"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Ellipse.Style>
-                    </Ellipse>
-                    <TextBlock Text="{Binding LastHeartbeatAgo}" Margin="6,0,0,0" Foreground="{StaticResource TextBrush2}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Heartbeats: " />
+                    <TextBlock Text="{Binding HeartbeatCounter, Mode=OneWay}" />
                 </StackPanel>
             </StackPanel>
 
