@@ -5,25 +5,94 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using SigstreamTelemetryAgent.Models;
-using SigstreamTelemetryAgent.Services;
 
 namespace SigstreamTelemetryAgent.Services
 {
-    // Aligns with server routes:
-    //  - POST /api/claim        (body: { api_key, machine_id, description })
-    //  - POST /api/heartbeat    (headers: X-Api-Key, X-Device-Id | X-Machine-Id; body: { device_id, heartbeat_time, status })
-    //  - POST /data             (headers: X-Api-Key, X-Device-Id; body: { device_id, data, timestamp })
-    //  - (optional) /api/status (if present; otherwise returns null)
+    // Server contract (main.py):
+    //  - POST /api/claim        body: { api_key, machine_id, description }
+    //  - POST /api/heartbeat    headers: X-Api-Key, X-Device-Id | X-Machine-Id; body: { device_id, heartbeat_time, status }
+    //  - POST /data             headers: X-Api-Key, X-Device-Id; body: { device_id, data, timestamp }
+    //  - (optional) POST /api/status (dev only; tolerate 404/5xx)
     public class ApiClient : IApiClient
+
+
+
     {
+
+
+
+        public async Task<bool?> ProbeKeyAsync(string apiKey, string machineId)
+        {
+            // Try /api/status first (if deployed). Returns:
+            //   true  => active/ok
+            //   false => revoked/unauthorized
+            //   null  => network/unknown (don’t flip state)
+            try
+            {
+                var body = new { api_key = apiKey, machine_id = machineId };
+                var res = await _http.PostAsJsonAsync("/api/status", body).ConfigureAwait(false);
+                LastStatusCode = res.StatusCode;
+
+                if (res.StatusCode == HttpStatusCode.NotFound)
+                    throw new HttpRequestException("status route not present");
+
+                if (res.IsSuccessStatusCode)
+                {
+                    // Accept either { "active": true/false } or { "revoked": true/false }
+                    try
+                    {
+                        using var doc = await JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
+                        var root = doc.RootElement;
+                        if (root.TryGetProperty("revoked", out var rv)) return !rv.GetBoolean();
+                        if (root.TryGetProperty("active", out var ac)) return ac.GetBoolean();
+                        return true; // if response is 2xx but lacks flags, assume ok
+                    }
+                    catch { return true; }
+                }
+
+                if (res.StatusCode == HttpStatusCode.Forbidden || res.StatusCode == HttpStatusCode.Unauthorized)
+                    return false;
+
+                return null;
+            }
+            catch
+            {
+                // Fall through to heartbeat-probe
+            }
+
+            // Fallback: tiny heartbeat probe (will update last_seen; acceptable for now)
+            var probe = new
+            {
+                device_id = machineId,
+                heartbeat_time = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss"),
+                status = "probe"
+            };
+            var ok = await PostWithHeadersAsync("/api/heartbeat", probe, apiKey, machineId).ConfigureAwait(false);
+            var code = LastStatusCode;
+
+            if (!ok && (code == HttpStatusCode.Forbidden || code == HttpStatusCode.Unauthorized))
+                return false;
+
+            if (ok) return true;
+            return null; // network/unknown
+        }
+
+
+
+
+
+
         private readonly HttpClient _http;
         private readonly ISettingsService? _settings;
 
         public ApiClient(HttpClient http, ISettingsService? settings = null)
         {
             _http = http ?? throw new ArgumentNullException(nameof(http));
-            _settings = settings; // optional; used to read MachineId if available
+            _settings = settings;
         }
+
+        /// <summary>Last HTTP status code from any POST call (used by HeartbeatService to detect revocation).</summary>
+        public HttpStatusCode? LastStatusCode { get; private set; }
 
         // -------------------------
         // Registration / Claim
@@ -38,10 +107,12 @@ namespace SigstreamTelemetryAgent.Services
                 {
                     api_key = apiKey,
                     machine_id = machineId,
-                    description = deviceLabel // server expects "description" (not "device_label")
+                    description = deviceLabel // server expects "description"
                 };
 
                 var res = await _http.PostAsJsonAsync("/api/claim", payload).ConfigureAwait(false);
+                LastStatusCode = res.StatusCode;
+
                 if (!res.IsSuccessStatusCode)
                 {
                     string? msg = null;
@@ -50,7 +121,7 @@ namespace SigstreamTelemetryAgent.Services
                         var json = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
                         msg = string.IsNullOrWhiteSpace(json) ? null : json;
                     }
-                    catch { /* ignore parse errors */ }
+                    catch { /* ignore */ }
 
                     return new RegistrationResult
                     {
@@ -60,15 +131,12 @@ namespace SigstreamTelemetryAgent.Services
                     };
                 }
 
-                // main.py does not return machine_id; treat success as bound/ok.
-                return new RegistrationResult
-                {
-                    Success = true,
-                    MachineId = machineId
-                };
+                // main.py does not return machine_id; treat any 2xx as success.
+                return new RegistrationResult { Success = true, MachineId = machineId };
             }
             catch (Exception ex)
             {
+                LastStatusCode = null;
                 return new RegistrationResult { Success = false, Error = ex.Message };
             }
         }
@@ -82,9 +150,10 @@ namespace SigstreamTelemetryAgent.Services
             {
                 var body = new { api_key = apiKey, machine_id = machineId };
                 var res = await _http.PostAsJsonAsync("/api/status", body).ConfigureAwait(false);
+                LastStatusCode = res.StatusCode;
 
                 if (res.StatusCode == HttpStatusCode.NotFound)
-                    return null; // not deployed in prod; treat as "no status info"
+                    return null; // not deployed in prod
 
                 if (!res.IsSuccessStatusCode)
                     return null;
@@ -94,7 +163,8 @@ namespace SigstreamTelemetryAgent.Services
             }
             catch
             {
-                return null; // network errors treated as "no status info"
+                LastStatusCode = null;
+                return null;
             }
         }
 
@@ -103,10 +173,10 @@ namespace SigstreamTelemetryAgent.Services
         // -------------------------
         public Task<bool> SendHeartbeatAsync(string apiKey, string machineId)
         {
-            // Server parses ISO-8601 via datetime.fromisoformat (no trailing 'Z')
             var hbBody = new
             {
                 device_id = machineId,
+                // server uses datetime.fromisoformat -> omit trailing Z
                 heartbeat_time = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss"),
                 status = "online"
             };
@@ -121,13 +191,10 @@ namespace SigstreamTelemetryAgent.Services
         {
             var epoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-            // Server expects: { device_id, data, timestamp }
-            // If TelemetryRecord.Raw contains JSON text, it's fine to send as string.
-            // (If you later have a parsed object, you can pass that instead.)
             var body = new
             {
                 device_id = machineId,
-                data = record?.Raw, // keep as-is; server stores/logs it
+                data = record?.Raw, // raw payload ok; server stores/logs as-is
                 timestamp = epoch
             };
 
@@ -146,31 +213,21 @@ namespace SigstreamTelemetryAgent.Services
                     Content = JsonContent.Create(body)
                 };
 
-                // main.py accepts either; we send X-Api-Key + X-Device-Id
+                // main.py accepts either X-Device-Id or X-Machine-Id; we send X-Device-Id
                 req.Headers.TryAddWithoutValidation("X-Api-Key", apiKey);
                 req.Headers.TryAddWithoutValidation("X-Device-Id", machineId);
 
                 var res = await _http.SendAsync(req).ConfigureAwait(false);
+                LastStatusCode = res.StatusCode;
                 return res.IsSuccessStatusCode;
             }
             catch
             {
+                LastStatusCode = null;
                 return false;
             }
         }
 
-        private string GetMachineId()
-        {
-            try
-            {
-                var app = _settings?.Load();
-                if (!string.IsNullOrWhiteSpace(app?.MachineId))
-                    return app!.MachineId!;
-            }
-            catch { /* ignore and fall back */ }
-
-            // Fallback if settings not available yet
-            return Environment.MachineName;
-        }
+        private string GetMachineId() => MachineIdProvider.GetOrCreate(_settings);
     }
 }

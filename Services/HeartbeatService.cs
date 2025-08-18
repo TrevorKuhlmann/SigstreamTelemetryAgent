@@ -1,81 +1,109 @@
-﻿// Services/HeartbeatService.cs
-using System;
+﻿using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-
-// Use the timers we actually want:
-using Timer = System.Timers.Timer;
-using ElapsedEventArgs = System.Timers.ElapsedEventArgs;
+using SigstreamTelemetryAgent.Models;
 
 namespace SigstreamTelemetryAgent.Services
 {
-    public sealed class HeartbeatEventArgs : EventArgs
-    {
-        public DateTime Utc { get; }
-        public bool Success { get; }
-        public HeartbeatEventArgs(DateTime utc, bool success) { Utc = utc; Success = success; }
-    }
-
     public class HeartbeatService : IHeartbeatService
     {
         private readonly IApiClient _api;
         private readonly ISettingsService _settings;
-        private Timer? _timer;
-        private Models.AppSettings? _current;          // for the elapsed handler
-        private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly IToastService _toast;
 
-        public event EventHandler<bool>? RevokedChanged;
+        private Timer? _hbTimer;
+        private Timer? _probeTimer;
+        private volatile bool _running;
+
+        // events expected by your app
         public event EventHandler<HeartbeatEventArgs>? Beat;
+        public event EventHandler<bool>? RevokedChanged;
 
-        public HeartbeatService(IApiClient api, ISettingsService settings)
-        { _api = api; _settings = settings; }
+        // how often to probe for revocation (seconds)
+        private const int ProbeSeconds = 5;     // ← snappy; adjust if you like
 
-        public void Start(Models.AppSettings s)
+        public HeartbeatService(IApiClient api, ISettingsService settings, IToastService toast)
         {
-            Stop();
-            if (!s.SendHeartbeats || string.IsNullOrWhiteSpace(s.ApiKey) || string.IsNullOrWhiteSpace(s.MachineId)) return;
+            _api = api;
+            _settings = settings;
+            _toast = toast;
+        }
 
-            _current = s;
-            _timer = new Timer(Math.Max(5, s.HeartbeatSeconds) * 1000);
-            _timer.Elapsed += OnTimerElapsed;          // named handler = easy unsubscribe
-            _timer.AutoReset = true;
-            _timer.Start();
+        public void Start(AppSettings app)
+        {
+            Stop(); // reset
+            _running = true;
 
-            _ = TickAsync(s);                           // immediate first beat
+            var hbMs = Math.Max(5, app.HeartbeatSeconds) * 1000;
+
+            _hbTimer = new Timer(async _ => await HeartbeatTick().ConfigureAwait(false), null, 1000, hbMs);
+            _probeTimer = new Timer(async _ => await ProbeTick().ConfigureAwait(false), null, 2000, ProbeSeconds * 1000);
         }
 
         public void Stop()
         {
-            if (_timer != null)
-            {
-                _timer.Elapsed -= OnTimerElapsed;
-                _timer.Stop();
-                _timer.Dispose();
-                _timer = null;
-            }
+            _running = false;
+            _hbTimer?.Dispose(); _hbTimer = null;
+            _probeTimer?.Dispose(); _probeTimer = null;
         }
 
-        private async void OnTimerElapsed(object? sender, ElapsedEventArgs e)
+        private async Task HeartbeatTick()
         {
-            if (_current == null) return;
-            if (!await _gate.WaitAsync(0)) return;      // skip if a tick is still running
-            try { await TickAsync(_current); }
-            catch { /* swallow to avoid crashing the timer thread */ }
-            finally { _gate.Release(); }
-        }
+            if (!_running) return;
 
-        private async Task TickAsync(Models.AppSettings s)
-        {
-            var status = await _api.CheckStatusAsync(s.ApiKey!, s.MachineId!);
+            var app = _settings.Load();
+            if (string.IsNullOrWhiteSpace(app?.ApiKey) || string.IsNullOrWhiteSpace(app?.MachineId))
+                return;
+
+            // Optional dev pre-check
+            var status = await _api.CheckStatusAsync(app.ApiKey!, app.MachineId!);
             if (status?.IsRevoked == true)
             {
-                RevokedChanged?.Invoke(this, true);
-                Stop();
+                HandleRevoked();
                 return;
             }
 
-            var ok = await _api.SendHeartbeatAsync(s.ApiKey!, s.MachineId!);
-            Beat?.Invoke(this, new HeartbeatEventArgs(DateTime.UtcNow, ok));
+            var ok = await _api.SendHeartbeatAsync(app.ApiKey!, app.MachineId!);
+            var code = (_api as ApiClient)?.LastStatusCode;
+
+            try { Beat?.Invoke(this, new HeartbeatEventArgs(DateTime.UtcNow, ok, code)); } catch { /* ignore */ }
+
+            if (!ok && (code == HttpStatusCode.Unauthorized || code == HttpStatusCode.Forbidden))
+            {
+                HandleRevoked();
+            }
+        }
+
+        private async Task ProbeTick()
+        {
+            if (!_running) return;
+
+            var app = _settings.Load();
+            if (string.IsNullOrWhiteSpace(app?.ApiKey) || string.IsNullOrWhiteSpace(app?.MachineId))
+                return;
+
+            var active = await (_api as ApiClient)?.ProbeKeyAsync(app.ApiKey!, app.MachineId!)!;
+            if (active == false)
+            {
+                HandleRevoked();
+            }
+            // null => network hiccup; ignore
+        }
+
+        private void HandleRevoked()
+        {
+            if (!_running) return;
+
+            var app = _settings.Load() ?? new AppSettings();
+            app.SendHeartbeats = false;
+            app.ApiKey = null;
+            _settings.Save(app);
+
+            try { _toast?.ShowSuccess("API key revoked by server. Heartbeats stopped."); } catch { }
+            try { RevokedChanged?.Invoke(this, true); } catch { }
+
+            Stop();
         }
     }
 }
