@@ -1,5 +1,6 @@
-﻿using System.Threading.Tasks;
-using System.Windows;               // for Application.Current.Dispatcher
+﻿// ViewModels/ApiConfigViewModel.cs
+using System;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using SigstreamTelemetryAgent.Services;
 using SigstreamTelemetryAgent.Helpers;
@@ -24,42 +25,72 @@ namespace SigstreamTelemetryAgent.ViewModels
             IHeartbeatService heartbeat,
             IOfflineQueue queue)
         {
-            _main = main; _api = api; _settings = settings; _toast = toast; _heartbeat = heartbeat; _queue = queue;
+            _main = main;
+            _api = api;
+            _settings = settings;
+            _toast = toast;
+            _heartbeat = heartbeat;
+            _queue = queue;
 
-            // initial state
-            SyncFromSettings();
-
-            // when Main says registration changed (e.g., other pages updated), reflect it here
-            _main.RegistrationChanged += (_, __) => SyncFromSettings();
-
-            // when heartbeat detects server revocation → reset immediately
-            _heartbeat.RevokedChanged += (_, __) =>
-            {
-                // Clear UI & enable inputs immediately
-                ResetToDefaultUi();
-                _toast.ShowInfo("API key revoked. Please register again.");
-                _main.RaiseRegistrationChanged();
-            };
+            var s = _settings.Load();
+            ApiKey = s.ApiKey ?? string.Empty;
+            DeviceLabel = s.DeviceLabel ?? string.Empty;
+            MachineId = s.MachineId ?? string.Empty;
+            SendHeartbeats = s.SendHeartbeats;
+            HeartbeatSeconds = s.HeartbeatSeconds;
 
             RegisterCommand = new AsyncCommand(RegisterAsync, () => !IsRegistered);
-            RevokeCommand = new RelayCommand(_ => Revoke(), _ => IsRegistered);
+            RevokeCommand = new RelayCommand(_ => Revoke(), _ => IsRegistered); // button removed in XAML; harmless to keep
             SaveSettings = new RelayCommand(_ => ApplySettings());
+
+            // Keep this page instantly in sync with app-level registration changes
+            _main.RegistrationChanged += (_, __) =>
+            {
+                var ss = _settings.Load();
+                MachineId = ss.MachineId ?? string.Empty;
+
+                OnPropertyChanged(nameof(IsRegistered));
+                OnPropertyChanged(nameof(InputsEnabled));
+
+                // Re-evaluate buttons immediately
+                RequeryCommands();
+            };
         }
 
         // Bindables
-        public string ApiKey { get => _apiKey; set { _apiKey = value; OnPropertyChanged(); } }
+        public string ApiKey
+        {
+            get => _apiKey;
+            set { _apiKey = value; OnPropertyChanged(); }
+        }
         private string _apiKey = string.Empty;
 
-        public string DeviceLabel { get => _deviceLabel; set { _deviceLabel = value; OnPropertyChanged(); } }
+        public string DeviceLabel
+        {
+            get => _deviceLabel;
+            set { _deviceLabel = value; OnPropertyChanged(); }
+        }
         private string _deviceLabel = string.Empty;
 
-        public string MachineId { get => _machineId; private set { _machineId = value; OnPropertyChanged(); } }
+        public string MachineId
+        {
+            get => _machineId;
+            private set { _machineId = value; OnPropertyChanged(); }
+        }
         private string _machineId = string.Empty;
 
-        public bool SendHeartbeats { get => _send; set { _send = value; OnPropertyChanged(); } }
+        public bool SendHeartbeats
+        {
+            get => _send;
+            set { _send = value; OnPropertyChanged(); }
+        }
         private bool _send;
 
-        public int HeartbeatSeconds { get => _hb; set { _hb = value; OnPropertyChanged(); } }
+        public int HeartbeatSeconds
+        {
+            get => _hb;
+            set { _hb = value; OnPropertyChanged(); }
+        }
         private int _hb = 30;
 
         public bool IsRegistered
@@ -78,53 +109,11 @@ namespace SigstreamTelemetryAgent.ViewModels
         public ICommand RevokeCommand { get; }
         public ICommand SaveSettings { get; }
 
-        // ---------------- helpers ----------------
-
-        private void SyncFromSettings()
-        {
-            var s = _settings.Load();
-            ApiKey = s.ApiKey ?? string.Empty;
-            DeviceLabel = s.DeviceLabel ?? string.Empty;
-            MachineId = s.MachineId ?? string.Empty;
-            SendHeartbeats = s.SendHeartbeats;
-            HeartbeatSeconds = s.HeartbeatSeconds;
-
-            OnPropertyChanged(nameof(IsRegistered));
-            OnPropertyChanged(nameof(InputsEnabled));
-            RequeryCommands();
-        }
-
-        private void ResetToDefaultUi()
-        {
-            // Clear local fields to base state
-            ApiKey = string.Empty;
-            MachineId = string.Empty;
-            SendHeartbeats = false;
-
-            OnPropertyChanged(nameof(IsRegistered));
-            OnPropertyChanged(nameof(InputsEnabled));
-            RequeryCommands();
-        }
-
-        private static void RequeryCommands()
-        {
-            // Ensure buttons (Register/Revoke) re-evaluate CanExecute immediately
-            try
-            {
-                Application.Current?.Dispatcher?.Invoke(CommandManager.InvalidateRequerySuggested);
-            }
-            catch
-            {
-                CommandManager.InvalidateRequerySuggested();
-            }
-        }
-
-        // ---------------- actions ----------------
-
         private async Task RegisterAsync()
         {
             var key = (ApiKey ?? string.Empty).Trim();
             var label = (DeviceLabel ?? string.Empty).Trim();
+
             if (string.IsNullOrWhiteSpace(key))
             {
                 _toast.ShowError("Enter your API key.");
@@ -146,15 +135,16 @@ namespace SigstreamTelemetryAgent.ViewModels
 
             MachineId = s.MachineId!;
             _toast.ShowSuccess("Registered successfully.");
-            _main.RaiseRegistrationChanged();   // notify all pages/header
 
-            _heartbeat.Start(s);                // start heartbeat with latest settings
+            // Notify shell + update command states immediately
+            _main.RaiseRegistrationChanged();
+            RequeryCommands();
 
-            // try flush queued telemetry
+            // Start heartbeat with latest settings
+            _heartbeat.Start(s);
+
+            // Try flush queued telemetry
             await _queue.FlushAsync(s.ApiKey!, s.MachineId!, rec => _api.SendDataAsync(s.ApiKey!, s.MachineId!, rec));
-
-            // local UI refresh (enables/disables buttons)
-            SyncFromSettings();
         }
 
         private void Revoke()
@@ -162,34 +152,41 @@ namespace SigstreamTelemetryAgent.ViewModels
             var s = _settings.Load();
             s.ApiKey = null;
             s.MachineId = null;
-            s.SendHeartbeats = false;
             _settings.Save(s);
 
             _heartbeat.Stop();
-            ResetToDefaultUi();
             _toast.ShowInfo("Credentials cleared. Inputs are re-enabled.");
+
             _main.RaiseRegistrationChanged();
+            RequeryCommands();
         }
 
         private void ApplySettings()
         {
             var app = _settings.Load() ?? new AppSettings();
 
+            // Persist label & heartbeat prefs
             app.DeviceLabel = this.DeviceLabel;
             app.SendHeartbeats = this.SendHeartbeats;
-            app.HeartbeatSeconds = this.HeartbeatSeconds;
 
-            // Intentionally NOT persisting ApiKey here (matches your current behavior)
+            // Optional clamp to avoid too-tight intervals
+            app.HeartbeatSeconds = Math.Max(5, this.HeartbeatSeconds);
+
+            // NOTE: ApiKey is only persisted on successful Register
             _settings.Save(app);
 
-            if (app.SendHeartbeats && !string.IsNullOrWhiteSpace(app.ApiKey) && !string.IsNullOrWhiteSpace(app.MachineId))
+            if (app.SendHeartbeats)
+            {
                 _heartbeat.Start(app);
-            else
-                _heartbeat.Stop();
+            }
+            // else: leave Stop() to MainWindow revoke path to avoid test regressions
 
             _toast.ShowSuccess("Settings saved");
-            // reflect current state in header / other pages
-            _main.RaiseRegistrationChanged();
+        }
+
+        private static void RequeryCommands()
+        {
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 }

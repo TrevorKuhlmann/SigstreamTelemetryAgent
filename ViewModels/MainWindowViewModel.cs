@@ -3,10 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using SigstreamTelemetryAgent.Models;
 using SigstreamTelemetryAgent.Services;
 using SigstreamTelemetryAgent.Helpers;
+using System;
+using System.Threading.Tasks;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media; // Brush/Brushes
-using System.Threading.Tasks;
+using System.Windows.Media;
 
 namespace SigstreamTelemetryAgent.ViewModels
 {
@@ -21,7 +22,7 @@ namespace SigstreamTelemetryAgent.ViewModels
         public AppSettings Settings { get; }
         public bool IsRegistered => !string.IsNullOrWhiteSpace(Settings.ApiKey) && !string.IsNullOrWhiteSpace(Settings.MachineId);
 
-        // Header/status bindables
+        // Header/status bindables (also used by sidebar status line)
         public string RegistrationStatusText => IsRegistered ? "Registered" : "Not registered";
         public Brush RegistrationStatusBrush => IsRegistered ? Brushes.Green : Brushes.Red;
 
@@ -32,17 +33,13 @@ namespace SigstreamTelemetryAgent.ViewModels
 
         public event EventHandler? RegistrationChanged;
 
-        public void RaiseRegistrationChanged()
-        {
-            RegistrationChanged?.Invoke(this, System.EventArgs.Empty);
-            OnPropertyChanged(nameof(IsRegistered));
-            OnPropertyChanged(nameof(RegistrationStatusText));
-            OnPropertyChanged(nameof(RegistrationStatusBrush));
-        }
-
         public MainWindowViewModel(ISettingsService settings, IApiClient api, IHeartbeatService heartbeat, ITrayService tray)
         {
-            _settings = settings; _api = api; _heartbeat = heartbeat; _tray = tray;
+            _settings = settings;
+            _api = api;
+            _heartbeat = heartbeat;
+            _tray = tray;
+
             Settings = _settings.Load();
 
             NavigateDashboard = new RelayCommand(_ => NavigateTo<Views.Pages.DashboardPage>());
@@ -50,13 +47,14 @@ namespace SigstreamTelemetryAgent.ViewModels
             NavigateApiConfig = new RelayCommand(_ => NavigateTo<Views.Pages.ApiConfigPage>());
             NavigateAbout = new RelayCommand(_ => NavigateTo<Views.Pages.AboutPage>());
 
-            // On server revocation → stop, clear UI, jump to API config
+            // Cloud-driven revocation → stop, clear, notify, navigate
             _heartbeat.RevokedChanged += async (_, revoked) =>
             {
                 if (revoked) await HandleRevocationAsync("Server reported revocation.");
             };
 
-            if (IsRegistered) _ = CheckRegistrationAndStartAsync();
+            if (IsRegistered)
+                _ = CheckRegistrationAndStartAsync();
         }
 
         public void Init(Frame frame)
@@ -84,27 +82,47 @@ namespace SigstreamTelemetryAgent.ViewModels
             _heartbeat.Start(Settings);
         }
 
-        public async Task HandleRevocationAsync(string reason)
+        public void RaiseRegistrationChanged()
         {
-            // Ensure all UI-bound changes happen on the WPF UI thread
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            void Fire()
             {
-                // stop heartbeats first
+                OnPropertyChanged(nameof(IsRegistered));
+                OnPropertyChanged(nameof(RegistrationStatusText));
+                OnPropertyChanged(nameof(RegistrationStatusBrush));
+
+                RegistrationChanged?.Invoke(this, EventArgs.Empty);
+
+                // Re-evaluate all WPF commands (enables Register immediately)
+                CommandManager.InvalidateRequerySuggested();
+            }
+
+            var disp = System.Windows.Application.Current?.Dispatcher;
+            if (disp?.CheckAccess() == true) Fire();
+            else disp?.Invoke(Fire);
+        }
+
+        public Task HandleRevocationAsync(string reason)
+        {
+            var disp = System.Windows.Application.Current?.Dispatcher;
+            void DoRevoke()
+            {
                 _heartbeat.Stop();
 
-                // clear credentials and persist
                 Settings.ApiKey = null;
                 Settings.MachineId = null;
                 Settings.SendHeartbeats = false;
                 _settings.Save(Settings);
 
-                // toast + notify + refresh header bindings
                 _tray.ShowInfoToast($"Access revoked: {reason}");
-                RaiseRegistrationChanged();
 
-                // navigate user to API config so they can re-register immediately
+                RaiseRegistrationChanged();
                 NavigateApiConfig?.Execute(null);
-            });
+            }
+
+            if (disp?.CheckAccess() == true) DoRevoke();
+            else disp?.Invoke(DoRevoke);
+
+            return Task.CompletedTask;
         }
     }
 }
