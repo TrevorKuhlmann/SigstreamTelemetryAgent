@@ -5,9 +5,9 @@
       Title="Dashboard"
       Background="{StaticResource SurfaceBrush}">
 
-    <!-- If you already registered the converter at App level, you can remove this -->
     <Page.Resources>
         <conv:LevelToBrushConverter x:Key="LevelToBrushConverter"/>
+        <conv:WidthFromPercentConverter x:Key="WidthFromPercentConverter"/>
         <SolidColorBrush x:Key="SurfaceAltBrush" Color="#0F000000"/>
     </Page.Resources>
 
@@ -29,15 +29,15 @@
             <StackPanel Grid.Column="0">
                 <TextBlock Text="Registration" Style="{StaticResource H2}"/>
 
-                <!-- FIX: use a StackPanel (not a StackPanel inside a TextBlock) -->
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
                     <TextBlock Text="State: " />
                     <TextBlock Text="{Binding RegistrationStatusText, Mode=OneWay}"
                                Foreground="{Binding RegistrationStatusBrush, Mode=OneWay}" />
                 </StackPanel>
 
-                <TextBlock Text="{Binding MachineId}"
-                           FontFamily="Consolas" FontSize="12"
+                <!-- Device label instead of MachineId -->
+                <TextBlock Text="{Binding DeviceLabel}"
+                           FontFamily="Segoe UI" FontSize="12"
                            Foreground="{StaticResource MutedBrush}"/>
             </StackPanel>
 
@@ -51,14 +51,30 @@
 
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Offline queue" Style="{StaticResource H2}"/>
+
+                <!-- Count + bytes + Flush -->
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <TextBlock Text="{Binding QueueDepth}" FontSize="20" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding QueueSizeText}" Margin="8,2,0,0" Foreground="{StaticResource MutedBrush}"/>
+                    <TextBlock Text="{Binding QueueSizeBytes, StringFormat={}{0:N0} B}"
+                               Margin="8,2,0,0" Foreground="{StaticResource MutedBrush}"/>
                     <Button Style="{StaticResource PrimaryButton}" Content="Flush now"
-            Command="{Binding FlushNow}" Margin="12,0,0,0" />
+                            Command="{Binding FlushNow}" Margin="12,0,0,0" />
                 </StackPanel>
-            </StackPanel>
 
+                <!-- Linear meter -->
+                <Border x:Name="QueueTrack" Height="10" CornerRadius="6"
+                        Background="{StaticResource SurfaceBrush}" Margin="0,8,24,0"
+                        ToolTip="{Binding QueueFillPercent, StringFormat={}{0:0.0}%}">
+                    <Border Background="{Binding QueueFillBrush}" CornerRadius="6" HorizontalAlignment="Left">
+                        <Border.Width>
+                            <MultiBinding Converter="{StaticResource WidthFromPercentConverter}">
+                                <Binding ElementName="QueueTrack" Path="ActualWidth"/>
+                                <Binding Path="QueueFillPercent"/>
+                            </MultiBinding>
+                        </Border.Width>
+                    </Border>
+                </Border>
+            </StackPanel>
         </Grid>
 
         <Separator Grid.Row="1"/>
@@ -72,10 +88,8 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <DockPanel Margin="0,4,0,4">
-                                    <!-- Level indicator -->
                                     <Ellipse Width="8" Height="8" Margin="0,4,8,0"
                                              Fill="{Binding Level, Converter={StaticResource LevelToBrushConverter}}"/>
-                                    <!-- Time + Message -->
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Foreground="{StaticResource MutedBrush}"
                                                    Text="{Binding When, StringFormat={}{0:HH:mm:ss}}"

@@ -50,18 +50,25 @@ namespace SigstreamTelemetryAgent.ViewModels
             _queue.StatsChanged += (_, __) => OnUI(() =>
             {
                 OnPropertyChanged(nameof(QueueDepth));
-                OnPropertyChanged(nameof(QueueSizeText));
+                OnPropertyChanged(nameof(QueueSizeBytes));
+                OnPropertyChanged(nameof(QueueFillPercent));
+                OnPropertyChanged(nameof(QueueFillBrush));
             });
+
             _queue.Flushed += (_, e) => OnUI(() =>
             {
                 AddActivity($"Flushed {e.Sent} queued item(s), {e.Remaining} remaining", ActivityLevel.Info);
                 OnPropertyChanged(nameof(QueueDepth));
-                OnPropertyChanged(nameof(QueueSizeText));
+                OnPropertyChanged(nameof(QueueSizeBytes));
+                OnPropertyChanged(nameof(QueueFillPercent));
+                OnPropertyChanged(nameof(QueueFillBrush));
             });
 
-            // one shot initial
+            // one-shot initial
             OnPropertyChanged(nameof(QueueDepth));
-            OnPropertyChanged(nameof(QueueSizeText));
+            OnPropertyChanged(nameof(QueueSizeBytes));
+            OnPropertyChanged(nameof(QueueFillPercent));
+            OnPropertyChanged(nameof(QueueFillBrush));
 
             FlushNow = new RelayCommand(async _ =>
             {
@@ -71,11 +78,11 @@ namespace SigstreamTelemetryAgent.ViewModels
             });
         }
 
-        // Status passthrough (and MachineId for the XAML)
+        // Status passthrough (and label for the XAML)
         public bool IsRegistered => _main.IsRegistered;
         public string RegistrationStatusText => _main.RegistrationStatusText;
         public Brush RegistrationStatusBrush => _main.RegistrationStatusBrush;
-        public string MachineId => _main.Settings?.MachineId ?? string.Empty;
+        public string DeviceLabel => _main.Settings?.DeviceLabel ?? string.Empty;
 
         // Heartbeats
         private int _heartbeatCounter;
@@ -87,7 +94,19 @@ namespace SigstreamTelemetryAgent.ViewModels
 
         // Offline queue bindables
         public int QueueDepth => _queue.Count;
-        public string QueueSizeText => $"{Math.Max(0, _queue.SizeBytes) / (1024.0 * 1024.0):0.00} MB";
+        public long QueueSizeBytes => Math.Max(0, _queue.SizeBytes);
+
+        // Linear meter (requires IOfflineQueue.MaxCapacityBytes)
+        public double QueueFillPercent =>
+            (_queue is not null && _queue.MaxCapacityBytes > 0)
+                ? Math.Min(100.0, (100.0 * _queue.SizeBytes) / _queue.MaxCapacityBytes)
+                : 0.0;
+
+        public Brush QueueFillBrush =>
+            QueueFillPercent < 60 ? Brushes.SeaGreen :
+            QueueFillPercent < 85 ? Brushes.Goldenrod :
+                                    Brushes.IndianRed;
+
         public ICommand FlushNow { get; }
 
         // Activity feed
@@ -105,7 +124,7 @@ namespace SigstreamTelemetryAgent.ViewModels
             OnPropertyChanged(nameof(IsRegistered));
             OnPropertyChanged(nameof(RegistrationStatusText));
             OnPropertyChanged(nameof(RegistrationStatusBrush));
-            OnPropertyChanged(nameof(MachineId));
+            OnPropertyChanged(nameof(DeviceLabel));
         }
 
         private static void OnUI(Action a)

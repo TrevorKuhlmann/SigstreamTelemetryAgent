@@ -13,17 +13,21 @@ namespace SigstreamTelemetryAgent.Services
         private readonly string _path;
         private readonly SemaphoreSlim _io = new(1, 1);   // 🔒 serialize file access
 
+
         public event EventHandler<FlushEventArgs>? Flushed;
         public event EventHandler? StatsChanged;
 
         private const long MaxBytes = 20L * 1024 * 1024;  // 20 MB cap
         private const long TrimToBytes = 15L * 1024 * 1024;
 
+        public long MaxCapacityBytes => MaxBytes; // <-- NEW
         // live stats (no file reads needed)
         private int _count;
         private long _sizeBytes;
         public int Count => _count;
         public long SizeBytes => Interlocked.Read(ref _sizeBytes);
+        public long MaxCapacityBytes => MaxBytes;
+
 
         public OfflineQueue()
         {

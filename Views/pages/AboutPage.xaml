@@ -3,15 +3,48 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       Title="About"
       Background="{StaticResource SurfaceBrush}">
-    <!-- Views/Pages/AboutPage.xaml -->
+
     <StackPanel Margin="24" Width="560">
         <TextBlock Text="Startup" Style="{StaticResource H2}" />
 
         <CheckBox Content="Start with Windows"
-            IsChecked="{Binding StartWithWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+              IsChecked="{Binding StartWithWindows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
         <CheckBox Content="Start minimized to tray"
-            IsChecked="{Binding StartMinimized, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-    </StackPanel>
+              IsChecked="{Binding StartMinimized, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
+        <Separator Margin="0,16,0,16"/>
+
+        <TextBlock Text="About" Style="{StaticResource H2}" />
+        <TextBlock Margin="0,6,0,0">
+      <Run Text="{Binding ProductName, Mode=OneWay}"/>
+      <Run Text="  v"/>
+      <Run Text="{Binding Version, Mode=OneWay}"/>
+        </TextBlock>
+
+        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+            <TextBlock Text="Website: " />
+            <TextBlock TextWrapping="Wrap">
+        <Hyperlink NavigateUri="{Binding Website, Mode=OneWay}"
+                   RequestNavigate="Link_RequestNavigate">
+          <Run Text="{Binding Website, Mode=OneWay}"/>
+        </Hyperlink>
+            </TextBlock>
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+            <TextBlock Text="Support: " />
+            <TextBlock TextWrapping="Wrap">
+        <Hyperlink NavigateUri="mailto:admin@sigstreamcloud.com"
+                   RequestNavigate="Link_RequestNavigate">
+          <Run Text="{Binding SupportEmail, Mode=OneWay}"/>
+        </Hyperlink>
+            </TextBlock>
+        </StackPanel>
+
+        <TextBlock Text="{Binding Disclaimer, Mode=OneWay}"
+               Margin="0,8,0,0"
+               Foreground="{StaticResource MutedBrush}"
+               TextWrapping="Wrap"/>
+    </StackPanel>
 </Page>
