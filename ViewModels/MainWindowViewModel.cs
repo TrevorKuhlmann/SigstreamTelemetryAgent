@@ -31,7 +31,25 @@ namespace SigstreamTelemetryAgent.ViewModels
         public ICommand NavigateApiConfig { get; }
         public ICommand NavigateAbout { get; }
 
+
+        private bool _isDashboardActive, _isComPortActive, _isApiConfigActive, _isAboutActive;
+        public bool IsDashboardActive { get => _isDashboardActive; set { _isDashboardActive = value; OnPropertyChanged(); } }
+        public bool IsComPortActive { get => _isComPortActive; set { _isComPortActive = value; OnPropertyChanged(); } }
+        public bool IsApiConfigActive { get => _isApiConfigActive; set { _isApiConfigActive = value; OnPropertyChanged(); } }
+        public bool IsAboutActive { get => _isAboutActive; set { _isAboutActive = value; OnPropertyChanged(); } }
+
+
         public event EventHandler? RegistrationChanged;
+
+
+        private void SetActive(string pageName)
+        {
+            IsDashboardActive = pageName == nameof(Views.Pages.DashboardPage);
+            IsComPortActive = pageName == nameof(Views.Pages.ComPortPage);
+            IsApiConfigActive = pageName == nameof(Views.Pages.ApiConfigPage);
+            IsAboutActive = pageName == nameof(Views.Pages.AboutPage);
+        }
+
 
         public MainWindowViewModel(ISettingsService settings, IApiClient api, IHeartbeatService heartbeat, ITrayService tray)
         {
@@ -86,9 +104,11 @@ namespace SigstreamTelemetryAgent.ViewModels
 
         private void NavigateTo<T>() where T : Page
         {
+            SetActive(typeof(T).Name);
             var page = (Page)App.HostInstance.Services.GetRequiredService(typeof(T));
             _frame!.Navigate(page);
         }
+
 
         private async Task CheckRegistrationAndStartAsync()
         {

@@ -27,7 +27,7 @@ namespace SigstreamTelemetryAgent.Services
 
             _icon = new NotifyIcon
             {
-                Icon = icon ?? SystemIcons.Application,
+                Icon = icon ?? new Icon("Resources/Icons/sigstream_app (1).ico"),
                 Visible = true,
                 Text = string.IsNullOrWhiteSpace(tooltip) ? "SigStream" : tooltip
             };

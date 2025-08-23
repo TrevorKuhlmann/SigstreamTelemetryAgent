@@ -63,6 +63,6 @@ namespace SigstreamTelemetryAgent.ViewModels
         public string Website => "https://sigstreamcloud.com";
         public string SupportEmail => "admin@sigstreamcloud.com";
         public string Disclaimer =>
-            "SigStream Agent sends telemetry you configure to SigStream Cloud. Use at your own risk.";
+            "SigStream Agent sends telemetry you configure to SigStream Cloud.";
     }
 }

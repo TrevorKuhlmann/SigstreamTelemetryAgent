@@ -19,20 +19,89 @@
                 BorderBrush="{StaticResource BorderBrush1}"
                 BorderThickness="0,0,1,0">
             <StackPanel Margin="18">
-                <TextBlock Text="SigStream" Style="{StaticResource H1}" Margin="0,0,0,12"/>
+                <!-- Sidebar header: logo + wordmark -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12" VerticalAlignment="Center">
+                    <Image Source="/Resources/Images/sigstream_mark_32.png"
+           Width="24" Height="24"
+           Margin="0,0,8,0"
+           Stretch="Uniform"
+           SnapsToDevicePixels="True"
+           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock Text="SigStream"
+               Style="{StaticResource H1}"
+               VerticalAlignment="Center"/>
+                </StackPanel>
 
-                <!-- ▼▼▼ ADDED: status line ▼▼▼ --><!--
+
+                <!-- ▼▼▼ status line (currently commented out in your version) ▼▼▼ -->
+                <!--
                 <TextBlock Margin="0,0,0,12">
-  <Run Text="Status: " />
-  <Run Text="{Binding RegistrationStatusText, Mode=OneWay}"
-       Foreground="{Binding RegistrationStatusBrush, Mode=OneWay}" />
+                    <Run Text="Status: " />
+                    <Run Text="{Binding RegistrationStatusText, Mode=OneWay}"
+                         Foreground="{Binding RegistrationStatusBrush, Mode=OneWay}" />
                 </TextBlock>
-                --><!-- ▲▲▲ ADDED: status line ▲▲▲ -->
+                -->
 
-                <Button Style="{StaticResource SidebarButton}" Content="Dashboard" Command="{Binding NavigateDashboard}"/>
-                <Button Style="{StaticResource SidebarButton}" Content="COM Port"  Command="{Binding NavigateComPort}"/>
-                <Button Style="{StaticResource SidebarButton}" Content="API Config" Command="{Binding NavigateApiConfig}"/>
-                <Button Style="{StaticResource SidebarButton}" Content="About"     Command="{Binding NavigateAbout}"/>
+                <!-- DASHBOARD -->
+                <Button Content="Dashboard"
+                        Command="{Binding NavigateDashboard}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDashboardActive}" Value="True">
+                                    <Setter Property="Background" Value="#EEF2FF"/>
+                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <!-- COM PORT -->
+                <Button Content="COM Port"
+                        Command="{Binding NavigateComPort}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsComPortActive}" Value="True">
+                                    <Setter Property="Background" Value="#EEF2FF"/>
+                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <!-- API CONFIG -->
+                <Button Content="API Config"
+                        Command="{Binding NavigateApiConfig}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsApiConfigActive}" Value="True">
+                                    <Setter Property="Background" Value="#EEF2FF"/>
+                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <!-- ABOUT -->
+                <Button Content="About"
+                        Command="{Binding NavigateAbout}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsAboutActive}" Value="True">
+                                    <Setter Property="Background" Value="#EEF2FF"/>
+                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
             </StackPanel>
         </Border>
 
