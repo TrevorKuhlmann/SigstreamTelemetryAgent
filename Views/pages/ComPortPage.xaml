@@ -12,15 +12,38 @@
         </Grid.RowDefinitions>
 
         <!-- Toolbar (no container) -->
+        <!-- Toolbar -->
         <StackPanel Grid.Row="0" Orientation="Horizontal">
             <TextBlock Text="Port:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <ComboBox Width="180" ItemsSource="{Binding Ports}" SelectedItem="{Binding SelectedPort}" />
+            <ComboBox Width="180" ItemsSource="{Binding Ports}" SelectedItem="{Binding SelectedPort}"/>
+
             <TextBlock Text="Baud:" VerticalAlignment="Center" Margin="12,0,6,0"/>
             <TextBox Width="90" Text="{Binding BaudRate, UpdateSourceTrigger=PropertyChanged}"/>
-            <Button Content="Refresh" Command="{Binding RefreshPortsCommand}" Margin="12,0,0,0"/>
-            <Button Style="{StaticResource PrimaryButton}" Content="Connect" Command="{Binding ConnectCommand}" Margin="12,0,0,0"/>
-            <Button Content="Disconnect" Command="{Binding DisconnectCommand}" Margin="8,0,0,0"/>
+
+            <!-- make Refresh consistent with Connect -->
+            <Button Style="{StaticResource PrimaryButton}"
+            Content="Refresh"
+            Command="{Binding RefreshPortsCommand}"
+            Margin="12,0,0,0"/>
+
+            <Button Style="{StaticResource PrimaryButton}"
+            Content="Connect"
+            Command="{Binding ConnectCommand}"
+            Margin="12,0,0,0"/>
+
+            <!-- keep it consistent too -->
+            <Button Style="{StaticResource PrimaryButton}"
+            Content="Disconnect"
+            Command="{Binding DisconnectCommand}"
+            Margin="12,0,0,0"/>
+
+            <!-- NEW: Clear telemetry -->
+            <Button Style="{StaticResource PrimaryButton}"
+            Content="Clear"
+            Command="{Binding ClearTelemetryCommand}"
+            Margin="12,0,0,0"/>
         </StackPanel>
+
 
         <Separator Grid.Row="1"/>
 

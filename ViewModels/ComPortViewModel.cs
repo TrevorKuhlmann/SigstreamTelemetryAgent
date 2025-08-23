@@ -23,6 +23,8 @@ namespace SigstreamTelemetryAgent.ViewModels
         public ObservableCollection<string> Ports { get; } = new();
         public ObservableCollection<string> RecentLines { get; } = new();
 
+        public ICommand ClearTelemetryCommand { get; }
+
         private string? _selectedPort;
         public string? SelectedPort
         {
@@ -60,6 +62,17 @@ namespace SigstreamTelemetryAgent.ViewModels
                                 IOfflineQueue queue,
                                 IToastService toast)
         {
+
+
+
+            ClearTelemetryCommand = new RelayCommand(_ =>
+            {
+                App.Current?.Dispatcher?.Invoke(() =>
+                {
+                    RecentLines.Clear();
+                });
+            });
+
             _com = com; _api = api; _settings = settings; _queue = queue; _toast = toast;
 
             // Commands
