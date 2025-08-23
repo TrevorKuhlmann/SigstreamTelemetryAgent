@@ -89,6 +89,8 @@ namespace SigstreamTelemetryAgent
             var startup = HostInstance.Services.GetRequiredService<Services.IStartupService>();
             startup.SetEnabled(settings.AutoStartOnBoot);
 
+            _ = HostInstance.Services.GetRequiredService<ViewModels.ComPortViewModel>();
+
             // Show main window (optionally minimized to tray)
             var main = HostInstance.Services.GetRequiredService<Views.MainWindow>();
             if (settings.StartMinimized)

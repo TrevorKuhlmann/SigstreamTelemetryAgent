@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -23,7 +24,11 @@ namespace SigstreamTelemetryAgent.ViewModels
         public ObservableCollection<string> RecentLines { get; } = new();
 
         private string? _selectedPort;
-        public string? SelectedPort { get => _selectedPort; set { _selectedPort = value; OnPropertyChanged(); ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged(); } }
+        public string? SelectedPort
+        {
+            get => _selectedPort;
+            set { _selectedPort = value; OnPropertyChanged(); ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged(); }
+        }
 
         private int _baudRate = 9600;
         public int BaudRate { get => _baudRate; set { _baudRate = value; OnPropertyChanged(); } }
@@ -57,19 +62,20 @@ namespace SigstreamTelemetryAgent.ViewModels
         {
             _com = com; _api = api; _settings = settings; _queue = queue; _toast = toast;
 
+            // Commands
             RefreshPortsCommand = new RelayCommand(_ => RefreshPorts());
             ConnectCommand = new RelayCommand(_ => Connect(), _ => !IsConnected && !string.IsNullOrWhiteSpace(SelectedPort));
             DisconnectCommand = new RelayCommand(_ => Disconnect(), _ => IsConnected);
 
+            // Initial port list
             RefreshPorts();
 
-            // --- Listen for global registration changes (revocation -> reset UI immediately)
+            // Global registration changes → reset when revoked/not registered
             var mainObj = App.HostInstance.Services.GetService(typeof(MainWindowViewModel));
             if (mainObj is MainWindowViewModel main)
             {
                 main.RegistrationChanged += (_, __) =>
                 {
-                    // If we are no longer registered, drop to base state
                     if (!main.IsRegistered)
                         ResetToDefault();
                 };
@@ -124,18 +130,18 @@ namespace SigstreamTelemetryAgent.ViewModels
                 _toast.ShowError($"COM error: {ex.Message}");
             };
 
-            // Auto-connect to last known port on startup
-            var st = _settings.Load();
-            if (!string.IsNullOrWhiteSpace(st.SelectedComPort))
+            // --- Auto-reconnect on startup using last saved port/baud (constructor ONLY) ---
+            var s0 = _settings.Load();
+            if (!string.IsNullOrWhiteSpace(s0.SelectedComPort) && s0.BaudRate > 0)
             {
-                SelectedPort = st.SelectedComPort;
-                BaudRate = st.BaudRate;
+                SelectedPort = s0.SelectedComPort;
+                BaudRate = s0.BaudRate;
                 _keepConnected = true;
-                _ = StartReconnectLoopAsync(initialImmediate: true);
+                _ = StartReconnectLoopAsync(initialImmediate: true); // try now, then backoff
             }
         }
 
-        // --- called when registration is cleared (revocation or manual) ---
+        // Called when registration is cleared (revocation or manual)
         public void ResetToDefault()
         {
             try
@@ -163,10 +169,14 @@ namespace SigstreamTelemetryAgent.ViewModels
         {
             Ports.Clear();
             foreach (var p in _com.GetPorts()) Ports.Add(p);
+
             OnPropertyChanged(nameof(IsConnected));
             ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
             ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
+
             QueueDepth = _queue.EstimateDepth();
+
+            // NOTE: Do NOT start auto-reconnect here; it lives in the constructor only.
         }
 
         private void Connect()
@@ -229,7 +239,7 @@ namespace SigstreamTelemetryAgent.ViewModels
                 }
                 catch
                 {
-                    var delay = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, attempt))); // 0s/2/4/8/16/30...
+                    var delay = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, attempt))); // 0/2/4/8/16/30...
                     attempt = Math.Max(1, attempt + 1);
                     try { await Task.Delay(delay, ct); } catch { break; }
                 }
