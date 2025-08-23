@@ -1,6 +1,5 @@
 ﻿// ViewModels/AboutViewModel.cs
 using SigstreamTelemetryAgent.Services;
-using SigstreamTelemetryAgent.Models;
 
 namespace SigstreamTelemetryAgent.ViewModels
 {
@@ -11,10 +10,24 @@ namespace SigstreamTelemetryAgent.ViewModels
 
         public AboutViewModel(ISettingsService settings, IStartupService startup)
         {
-            _settings = settings; _startup = startup;
+            _settings = settings;
+            _startup = startup;
+
+            // hydrate from sources of truth
             var s = _settings.Load();
-            _startWithWindows = _startup.IsEnabled();        // authoritative
+            _startWithWindows = _startup.IsEnabled();   // actual Run key
             _startMinimized = s.StartMinimized;
+
+            // reflect external mutations
+            _settings.SettingsChanged += (_, __) =>
+            {
+                var ss = _settings.Load();
+                _startWithWindows = _startup.IsEnabled();
+                _startMinimized = ss.StartMinimized;
+
+                OnPropertyChanged(nameof(StartWithWindows));
+                OnPropertyChanged(nameof(StartMinimized));
+            };
         }
 
         private bool _startWithWindows;
@@ -25,9 +38,12 @@ namespace SigstreamTelemetryAgent.ViewModels
             {
                 if (_startWithWindows == value) return;
                 _startWithWindows = value;
-                _startup.SetEnabled(value);
-                var s = _settings.Load(); s.AutoStartOnBoot = value; _settings.Save(s);
                 OnPropertyChanged();
+
+                _startup.SetEnabled(value);        // apply Run key now
+                var s = _settings.Load();
+                s.AutoStartOnBoot = value;         // persist flag too
+                _settings.Save(s);
             }
         }
 
@@ -39,8 +55,11 @@ namespace SigstreamTelemetryAgent.ViewModels
             {
                 if (_startMinimized == value) return;
                 _startMinimized = value;
-                var s = _settings.Load(); s.StartMinimized = value; _settings.Save(s);
                 OnPropertyChanged();
+
+                var s = _settings.Load();
+                s.StartMinimized = value;          // persist immediately
+                _settings.Save(s);
             }
         }
     }

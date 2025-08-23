@@ -53,10 +53,12 @@
                 <TextBlock Text="Offline queue" Style="{StaticResource H2}"/>
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <TextBlock Text="{Binding QueueDepth}" FontSize="20" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding QueueSizeText}" Margin="8,2,0,0" Foreground="{StaticResource MutedBrush}"/>
                     <Button Style="{StaticResource PrimaryButton}" Content="Flush now"
-                            Command="{Binding FlushNow}" Margin="12,0,0,0" />
+            Command="{Binding FlushNow}" Margin="12,0,0,0" />
                 </StackPanel>
             </StackPanel>
+
         </Grid>
 
         <Separator Grid.Row="1"/>

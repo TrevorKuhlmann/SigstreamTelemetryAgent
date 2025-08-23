@@ -36,7 +36,7 @@
 
         <TextBlock Text="Heartbeat" Style="{StaticResource H2}"/>
         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-            <CheckBox Content="Send heartbeats" IsChecked="{Binding SendHeartbeats}"/>
+            <!--<CheckBox Content="Send heartbeats" IsChecked="{Binding SendHeartbeats}"/>-->
             <TextBlock Text="Interval (s):" Margin="16,0,6,0" VerticalAlignment="Center"/>
             <TextBox Width="80" Text="{Binding HeartbeatSeconds, UpdateSourceTrigger=PropertyChanged}"/>
             <Button Style="{StaticResource PrimaryButton}" Content="Save" Command="{Binding SaveSettings}" Margin="12,0,0,0" Width="90"/>

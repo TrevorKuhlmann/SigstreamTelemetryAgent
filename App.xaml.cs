@@ -5,10 +5,10 @@ using Polly;
 using Polly.Extensions.Http;
 using Serilog;
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Windows;
-
 
 namespace SigstreamTelemetryAgent
 {
@@ -20,7 +20,8 @@ namespace SigstreamTelemetryAgent
         protected override void OnStartup(StartupEventArgs e)
         {
             Log.Logger = new LoggerConfiguration()
-                .WriteTo.File(path: System.IO.Path.Combine(
+                .WriteTo.File(
+                    path: Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                         "SigStream", "logs", "agent-.log"),
                     rollingInterval: RollingInterval.Day)
@@ -41,7 +42,7 @@ namespace SigstreamTelemetryAgent
                 .UseSerilog()
                 .ConfigureServices((ctx, services) =>
                 {
-                    // Core services
+                    // Services
                     services.AddSingleton<Services.ISettingsService, Services.SettingsService>();
                     services.AddSingleton<Services.IHeartbeatService, Services.HeartbeatService>();
                     services.AddSingleton<Services.IComPortService, Services.ComPortService>();
@@ -50,7 +51,7 @@ namespace SigstreamTelemetryAgent
                     services.AddSingleton<Services.ITrayService, Services.TrayService>();
                     services.AddSingleton<Services.IStartupService, Services.StartupService>();
 
-                    // HttpClient + Polly for IApiClient  (replaces the old AddSingleton<IApiClient, ApiClient>())
+                    // Typed HttpClient + Polly for IApiClient
                     services
                         .AddHttpClient<Services.IApiClient, Services.ApiClient>()
                         .ConfigureHttpClient((sp, client) =>
@@ -62,14 +63,14 @@ namespace SigstreamTelemetryAgent
                         .AddPolicyHandler(GetRetryPolicy())
                         .AddPolicyHandler(GetCircuitBreakerPolicy());
 
-                    // Background 60s offline-queue flush
+                    // Background offline-queue flush
                     services.AddHostedService<Services.QueueFlushService>();
 
                     // ViewModels
                     services.AddSingleton<ViewModels.MainWindowViewModel>();
                     services.AddSingleton<ViewModels.DashboardViewModel>();
                     services.AddSingleton<ViewModels.ApiConfigViewModel>();
-                    services.AddSingleton<ViewModels.ComPortViewModel>();
+                    services.AddSingleton<ViewModels.ComPortViewModel>();   // ensure singleton for warm-up
                     services.AddSingleton<ViewModels.AboutViewModel>();
 
                     // Views
@@ -83,22 +84,24 @@ namespace SigstreamTelemetryAgent
 
             HostInstance.Start();
 
+            // 🔴 Warm VMs/services that must run even if their pages aren't opened
+            _ = HostInstance.Services.GetRequiredService<ViewModels.ComPortViewModel>(); // starts COM auto-reconnect
+
             // Apply “Start with Windows” setting to Run key
             var settingsSvc = HostInstance.Services.GetRequiredService<Services.ISettingsService>();
             var settings = settingsSvc.Load();
             var startup = HostInstance.Services.GetRequiredService<Services.IStartupService>();
             startup.SetEnabled(settings.AutoStartOnBoot);
 
-            _ = HostInstance.Services.GetRequiredService<ViewModels.ComPortViewModel>();
-
             // Show main window (optionally minimized to tray)
             var main = HostInstance.Services.GetRequiredService<Views.MainWindow>();
             if (settings.StartMinimized)
             {
+                main.ShowActivated = false;
                 main.WindowState = WindowState.Minimized;
                 main.ShowInTaskbar = false;
                 main.Show();
-                main.Hide();
+                main.Hide(); // minimize to tray without flashing
             }
             else
             {
@@ -120,7 +123,7 @@ namespace SigstreamTelemetryAgent
             base.OnExit(e);
         }
 
-        // Tray context menu handlers
+        // Tray context menu handlers (wired by TrayService to these names)
         private void TrayOpen_Click(object sender, RoutedEventArgs e)
         {
             var win = HostInstance.Services.GetRequiredService<Views.MainWindow>();

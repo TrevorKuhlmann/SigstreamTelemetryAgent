@@ -145,6 +145,7 @@ namespace SigstreamTelemetryAgent.ViewModels
             s.ApiKey = key;
             s.DeviceLabel = label;
             s.MachineId = res.MachineId;
+            s.SendHeartbeats = true;   // always on
             _settings.Save(s);
 
             MachineId = s.MachineId!;

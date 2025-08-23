@@ -70,6 +70,11 @@ namespace SigstreamTelemetryAgent.ViewModels
             // Initial port list
             RefreshPorts();
 
+            // Keep queue depth live (no file reads)
+            QueueDepth = _queue.Count;
+            _queue.StatsChanged += (_, __) =>
+                App.Current?.Dispatcher?.Invoke(() => QueueDepth = _queue.Count);
+
             // Global registration changes → reset when revoked/not registered
             var mainObj = App.HostInstance.Services.GetService(typeof(MainWindowViewModel));
             if (mainObj is MainWindowViewModel main)
@@ -113,7 +118,8 @@ namespace SigstreamTelemetryAgent.ViewModels
                     });
                 }
 
-                App.Current.Dispatcher.Invoke(() => QueueDepth = _queue.EstimateDepth());
+                // no file access here — UI uses in-memory count
+                App.Current.Dispatcher.Invoke(() => QueueDepth = _queue.Count);
             };
 
             // Resilience: react to errors/drops
@@ -155,7 +161,7 @@ namespace SigstreamTelemetryAgent.ViewModels
             SelectedPort = null;
             ReceivedCount = 0;
             SentCount = 0;
-            QueueDepth = _queue.EstimateDepth();
+            QueueDepth = _queue.Count;
 
             Ports.Clear();
             foreach (var p in _com.GetPorts()) Ports.Add(p);
@@ -174,7 +180,7 @@ namespace SigstreamTelemetryAgent.ViewModels
             ((RelayCommand)ConnectCommand).RaiseCanExecuteChanged();
             ((RelayCommand)DisconnectCommand).RaiseCanExecuteChanged();
 
-            QueueDepth = _queue.EstimateDepth();
+            QueueDepth = _queue.Count;
 
             // NOTE: Do NOT start auto-reconnect here; it lives in the constructor only.
         }
