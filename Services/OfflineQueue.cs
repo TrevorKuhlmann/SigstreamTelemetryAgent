@@ -11,8 +11,7 @@ namespace SigstreamTelemetryAgent.Services
     public class OfflineQueue : IOfflineQueue
     {
         private readonly string _path;
-        private readonly SemaphoreSlim _io = new(1, 1);   // 🔒 serialize file access
-
+        private readonly SemaphoreSlim _io = new(1, 1);
 
         public event EventHandler<FlushEventArgs>? Flushed;
         public event EventHandler? StatsChanged;
@@ -20,10 +19,10 @@ namespace SigstreamTelemetryAgent.Services
         private const long MaxBytes = 20L * 1024 * 1024;  // 20 MB cap
         private const long TrimToBytes = 15L * 1024 * 1024;
 
-        public long MaxCapacityBytes => MaxBytes; // <-- NEW
-        // live stats (no file reads needed)
+        // live stats
         private int _count;
         private long _sizeBytes;
+
         public int Count => _count;
         public long SizeBytes => Interlocked.Read(ref _sizeBytes);
         public long MaxCapacityBytes => MaxBytes;

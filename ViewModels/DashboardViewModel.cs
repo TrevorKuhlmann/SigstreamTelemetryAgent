@@ -16,6 +16,16 @@ namespace SigstreamTelemetryAgent.ViewModels
         private readonly IOfflineQueue _queue;
         private readonly IApiClient _api;
 
+        // --- Offline banner state ---
+        private bool _isOffline;
+        public bool IsOffline
+        {
+            get => _isOffline;
+            private set { if (_isOffline != value) { _isOffline = value; OnPropertyChanged(); } }
+        }
+
+        private bool _lastBeatOk = true;
+
         public DashboardViewModel(MainWindowViewModel main, IHeartbeatService heartbeat, IOfflineQueue queue, IApiClient api)
         {
             _main = main;
@@ -23,36 +33,42 @@ namespace SigstreamTelemetryAgent.ViewModels
             _queue = queue;
             _api = api;
 
-            // Live beats → increment + log
             _heartbeat.Beat += (_, e) => OnUI(() =>
             {
-                HeartbeatCounter = e.Ok ? HeartbeatCounter + 1 : HeartbeatCounter;
-                AddActivity(e.Ok ? "Heartbeat OK" : $"Heartbeat failed {(int?)e.StatusCode}", e.Ok ? ActivityLevel.Info : ActivityLevel.Warn);
+                _lastBeatOk = e.Ok;
+                if (e.Ok) HeartbeatCounter++;
+                AddActivity(e.Ok ? "Heartbeat OK" : $"Heartbeat failed {(int?)e.StatusCode}",
+                            e.Ok ? ActivityLevel.Info : ActivityLevel.Warn);
+
+                RecomputeOffline();
             });
 
-            // Server revoke → zero counter + log
             _heartbeat.RevokedChanged += (_, __) => OnUI(() =>
             {
                 HeartbeatCounter = 0;
+                _lastBeatOk = false;
                 AddActivity("Access revoked by server", ActivityLevel.Error);
                 NotifyStatus();
+                RecomputeOffline();
             });
 
-            // Register/revoke from anywhere in app
             _main.RegistrationChanged += (_, __) => OnUI(() =>
             {
                 if (!IsRegistered) HeartbeatCounter = 0;
                 AddActivity(IsRegistered ? "Registered" : "Not registered", ActivityLevel.Info);
                 NotifyStatus();
+                RecomputeOffline();
             });
 
-            // Offline queue stats
             _queue.StatsChanged += (_, __) => OnUI(() =>
             {
                 OnPropertyChanged(nameof(QueueDepth));
                 OnPropertyChanged(nameof(QueueSizeBytes));
                 OnPropertyChanged(nameof(QueueFillPercent));
                 OnPropertyChanged(nameof(QueueFillBrush));
+                OnPropertyChanged(nameof(QueueCapacityBytes));
+                OnPropertyChanged(nameof(QueueStatusText));
+                RecomputeOffline();
             });
 
             _queue.Flushed += (_, e) => OnUI(() =>
@@ -62,13 +78,19 @@ namespace SigstreamTelemetryAgent.ViewModels
                 OnPropertyChanged(nameof(QueueSizeBytes));
                 OnPropertyChanged(nameof(QueueFillPercent));
                 OnPropertyChanged(nameof(QueueFillBrush));
+                OnPropertyChanged(nameof(QueueCapacityBytes));
+                OnPropertyChanged(nameof(QueueStatusText));
+                RecomputeOffline();
             });
 
-            // one-shot initial
+            // initial
             OnPropertyChanged(nameof(QueueDepth));
             OnPropertyChanged(nameof(QueueSizeBytes));
             OnPropertyChanged(nameof(QueueFillPercent));
             OnPropertyChanged(nameof(QueueFillBrush));
+            OnPropertyChanged(nameof(QueueCapacityBytes));
+            OnPropertyChanged(nameof(QueueStatusText));
+            RecomputeOffline();
 
             FlushNow = new RelayCommand(async _ =>
             {
@@ -78,11 +100,29 @@ namespace SigstreamTelemetryAgent.ViewModels
             });
         }
 
-        // Status passthrough (and label for the XAML)
+        private void RecomputeOffline()
+        {
+            // If you want the banner even while not registered, remove the IsRegistered check.
+            if (!IsRegistered)
+            {
+                IsOffline = _queue.Count > 0; // show only if there's cached data while unregistered
+                return;
+            }
+
+            IsOffline = !_lastBeatOk || _queue.Count > 0;
+        }
+
+        // Status passthrough
         public bool IsRegistered => _main.IsRegistered;
         public string RegistrationStatusText => _main.RegistrationStatusText;
         public Brush RegistrationStatusBrush => _main.RegistrationStatusBrush;
         public string DeviceLabel => _main.Settings?.DeviceLabel ?? string.Empty;
+
+        public long QueueCapacityBytes => _queue.MaxCapacityBytes;
+        public string QueueStatusText =>
+            QueueFillPercent < 60 ? "healthy" :
+            QueueFillPercent < 85 ? "filling" :
+                                    "almost full";
 
         // Heartbeats
         private int _heartbeatCounter;
@@ -95,8 +135,6 @@ namespace SigstreamTelemetryAgent.ViewModels
         // Offline queue bindables
         public int QueueDepth => _queue.Count;
         public long QueueSizeBytes => Math.Max(0, _queue.SizeBytes);
-
-        // Linear meter (requires IOfflineQueue.MaxCapacityBytes)
         public double QueueFillPercent =>
             (_queue is not null && _queue.MaxCapacityBytes > 0)
                 ? Math.Min(100.0, (100.0 * _queue.SizeBytes) / _queue.MaxCapacityBytes)
@@ -136,4 +174,6 @@ namespace SigstreamTelemetryAgent.ViewModels
 
     public enum ActivityLevel { Info, Warn, Error }
     public record ActivityItem(DateTime When, string Message, ActivityLevel Level);
+
+
 }
