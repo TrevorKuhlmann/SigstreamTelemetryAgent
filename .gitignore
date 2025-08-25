@@ -361,3 +361,22 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+
+
+# build outputs
+/bin/
+/obj/
+/dist/
+/installer/Output/
+
+# common large artefacts
+*.exe
+*.msi
+*.zip
+*.pdb
+*.log
+
+# IDE
+.vs/
+*.user
