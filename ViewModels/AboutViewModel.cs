@@ -1,5 +1,6 @@
 ﻿// ViewModels/AboutViewModel.cs
 using System.Diagnostics;
+using System.Reflection;            // ⬅️ add this
 using SigstreamTelemetryAgent.Services;
 
 namespace SigstreamTelemetryAgent.ViewModels
@@ -58,8 +59,28 @@ namespace SigstreamTelemetryAgent.ViewModels
 
         // ——— About info ———
         public string ProductName => "SigStream Agent";
-        public string Version =>
-            FileVersionInfo.GetVersionInfo(GetType().Assembly.Location).ProductVersion ?? "0.0.0";
+
+        // ✅ Safe for single-file publish: avoids Assembly.Location
+        public string Version
+        {
+            get
+            {
+                try
+                {
+                    var exe = Process.GetCurrentProcess().MainModule?.FileName;
+                    if (!string.IsNullOrEmpty(exe) && System.IO.File.Exists(exe))
+                    {
+                        var vi = FileVersionInfo.GetVersionInfo(exe);
+                        return vi.ProductVersion ?? vi.FileVersion ?? "0.0.0";
+                    }
+                }
+                catch { /* fall back below */ }
+
+                var v = Assembly.GetExecutingAssembly().GetName().Version;
+                return v?.ToString() ?? "0.0.0";
+            }
+        }
+
         public string Website => "https://sigstreamcloud.com";
         public string SupportEmail => "admin@sigstreamcloud.com";
         public string Disclaimer =>

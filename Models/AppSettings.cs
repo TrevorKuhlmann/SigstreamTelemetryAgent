@@ -22,5 +22,6 @@ namespace SigstreamTelemetryAgent.Models
 
         public bool SendHeartbeats { get; set; } = true;
         public int HeartbeatSeconds { get; set; } = 30;
+        
     }
 }

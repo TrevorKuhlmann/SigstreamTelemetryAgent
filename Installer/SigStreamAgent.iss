@@ -1,57 +1,70 @@
-; ====== EDIT ME ======
 #define MyAppName        "SigStream Agent"
-#define MyAppExeName     "SigstreamTelemetryAgent.exe"      ; <-- confirm this matches your published EXE name
-#define MyPublisher      "SigStreamCloud"
-#define MyURL            "https://sigstreamcloud.com"
-#define PublishDirRel    "..\dist\SigStreamAgent\win-x64"   ; output of dotnet publish in release.ps1
-#define BuildExe         AddBackslash(SourcePath) + "{#PublishDirRel}\{#MyAppExeName}"
-; =====================
+#define MyAppExeName     "SigstreamTelemetryAgent.exe"
 
-; Resolve version from the published EXE, with a safe fallback
-#ifexist "{#BuildExe}"
-  #define MyAppVersion  GetVersionNumbersString("{#BuildExe}")
-#else
-  #pragma message "Build EXE not found at {#BuildExe}; using default version 1.0.0.0"
-  #define MyAppVersion  "1.0.0.0"
+#ifndef BuildDir
+  #define BuildDir "..\dist\SigStreamAgent\win-x64"
 #endif
 
+#define BuildExe AddBackslash(BuildDir) + MyAppExeName
+#expr FileExists(BuildExe)
+#define MyAppVersion GetStringFileInfo(BuildExe, "ProductVersion")
+
 [Setup]
-; Keep AppId constant forever so upgrades work
-AppId={{B8B2E0A1-89C0-4F8E-9D7E-6E3F7E5E1A72}}
+AppId={{A1F9E2B2-1C3B-4C55-93F0-7B3C6A9D7A12}}   ; <-- fixed braces
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-AppPublisher={#MyPublisher}
-AppPublisherURL={#MyURL}
-AppSupportURL={#MyURL}
-DefaultDirName={autopf}\{#MyAppName}
+AppPublisher=SigStream
+AppPublisherURL=https://sigstreamcloud.com
+AppSupportURL=https://sigstreamcloud.com
+AppUpdatesURL=https://sigstreamcloud.com
+
+PrivilegesRequired=lowest
+DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
-OutputDir=.
+UsePreviousAppDir=yes
+
+; Put output under installer\Output
+OutputDir=installer\Output
 OutputBaseFilename=SigStreamAgent-Setup
-ArchitecturesInstallIn64BitMode=x64
-PrivilegesRequired=admin
-Compression=lzma
+Compression=lzma2/ultra64
 SolidCompression=yes
+
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+
 WizardStyle=modern
-SetupIconFile=..\Resources\Icons\sigstream_app_transparent.ico
+; Optional: make the installer EXE show your app icon
+SetupIconFile=SigStream.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
-DisableDirPage=no
-DisableProgramGroupPage=yes
+
+#ifexist "{#SourcePath}\wizard.bmp"
+WizardImageFile={#SourcePath}\wizard.bmp
+#endif
+#ifexist "{#SourcePath}\wizard-small.bmp"
+WizardSmallImageFile={#SourcePath}\wizard-small.bmp
+#endif
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "en"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a &desktop shortcut"; Flags: unchecked
 
 [Files]
-Source: "{#PublishDirRel}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copy the entire publish folder contents
+Source: "{#BuildDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Also include the ICO used by the app (if you reference it at runtime or for SetupIconFile)
+Source: "SigStream.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
-Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+; Start Menu
+Name: "{autoprograms}\SigStream Agent"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
+; Desktop (only if task checked)
+Name: "{autodesktop}\SigStream Agent"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; WorkingDir: "{app}"
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent; WorkingDir: "{app}"
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}\logs"
+; Remove app data your agent created (adjust if your folder is different)
+Type: filesandordirs; Name: "{userappdata}\SigStream"
