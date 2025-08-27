@@ -17,6 +17,16 @@
         <!-- ~15% alpha of WarningBrush for banner background (ARGB: 0x26 = ~15%) -->
         <SolidColorBrush x:Key="WarningBannerBgBrush" Color="#26E0A800"/>
 
+        <!-- High-contrast colors for the registration pill -->
+        <SolidColorBrush x:Key="PillGreenBg" Color="#D1FAE5"/>
+        <!-- light emerald -->
+        <SolidColorBrush x:Key="PillGreenFg" Color="#065F46"/>
+        <!-- dark emerald -->
+        <SolidColorBrush x:Key="PillRedBg"   Color="#FEE2E2"/>
+        <!-- light rose -->
+        <SolidColorBrush x:Key="PillRedFg"   Color="#991B1B"/>
+        <!-- dark rose -->
+
         <!-- newest-first activity view -->
         <CollectionViewSource x:Key="ActivityView" Source="{Binding Activity}">
             <CollectionViewSource.SortDescriptions>
@@ -42,16 +52,41 @@
 
             <!-- Registration -->
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Registration" Style="{StaticResource H2}"/>
+                <TextBlock Text="Registration State" Style="{StaticResource H2}"/>
 
                 <!-- pill/badge for state -->
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
-                    <TextBlock Text="State:" Margin="0,0,6,0"/>
-                    <Border Padding="6,2" CornerRadius="10"
-                            Background="{Binding RegistrationStatusBrush}" Opacity="0.18">
-                        <TextBlock Text="{Binding RegistrationStatusText}"
-                                   Foreground="{Binding RegistrationStatusBrush}"
-                                   FontWeight="SemiBold"/>
+                    <!--<TextBlock Text="State:" Margin="0,0,6,0"/>-->
+                    <Border CornerRadius="14" Padding="10,4" BorderThickness="1">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <!-- default = NOT registered -->
+                                <Setter Property="Background"  Value="{StaticResource PillRedBg}"/>
+                                <Setter Property="BorderBrush" Value="#FCA5A5"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRegistered}" Value="True">
+                                        <Setter Property="Background"  Value="{StaticResource PillGreenBg}"/>
+                                        <Setter Property="BorderBrush" Value="#34D399"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+
+                        <TextBlock FontWeight="SemiBold">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <!-- default = NOT registered -->
+                                    <Setter Property="Text"       Value="Not registered"/>
+                                    <Setter Property="Foreground" Value="{StaticResource PillRedFg}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRegistered}" Value="True">
+                                            <Setter Property="Text"       Value="Registered"/>
+                                            <Setter Property="Foreground" Value="{StaticResource PillGreenFg}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </Border>
                 </StackPanel>
 

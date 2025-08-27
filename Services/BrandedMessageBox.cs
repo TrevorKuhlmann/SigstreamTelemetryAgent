@@ -58,8 +58,36 @@ namespace SigstreamTelemetryAgent.Services
                 return dlg.ShowDialog();
             }
 
-            // No owner window yet (early startup) → temporarily prevent auto-shutdown
             if (app != null)
             {
                 var original = app.ShutdownMode;
-                var changed =
+                var changed = false;
+
+                if (original == ShutdownMode.OnLastWindowClose)
+                {
+                    app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                    changed = true;
+                }
+
+                try { return dlg.ShowDialog(); }
+                finally
+                {
+                    if (changed)
+                        app.ShutdownMode = original;
+                }
+            }
+
+            return dlg.ShowDialog();
+        }
+
+        private static Window? ResolveOwner()
+        {
+            var app = Application.Current;
+            if (app == null || app.Windows == null || app.Windows.Count == 0)
+                return null;
+
+            var active = app.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive);
+            return active ?? app.Windows[0];
+        }
+    }
+}

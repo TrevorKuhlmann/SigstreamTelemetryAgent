@@ -1,4 +1,4 @@
-﻿// App.xaml.cs — CLEAN PRODUCTION + Branded Dialogs
+﻿// App.xaml.cs — Branded dialogs + shutdown-safe startup (no forced app exit)
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Polly;
@@ -19,34 +19,43 @@ namespace SigstreamTelemetryAgent
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // Prevent early modal dialogs (before a main window exists) from closing the app
+            var originalShutdownMode = this.ShutdownMode;
+            var shutdownModeChanged = false;
+            if (originalShutdownMode == ShutdownMode.OnLastWindowClose)
+            {
+                this.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                shutdownModeChanged = true;
+            }
+
             // Single-instance guard
             bool createdNew;
             _singleInstance = new System.Threading.Mutex(true, "SigstreamTelemetryAgent_Mutex", out createdNew);
             if (!createdNew)
             {
                 ShowInfo("SigStream Agent is already running.", "Already running");
+                // No need to restore ShutdownMode here; we’re exiting intentionally
                 Shutdown();
                 return;
             }
 
-            // Minimal exception hooks (use branded dialog if available; fallback to MessageBox)
+            // Exception hooks (do NOT force app shutdown on UI exceptions)
             AppDomain.CurrentDomain.UnhandledException += (s, ex) =>
             {
-                ShowError("A fatal error occurred and the application will close.", "Fatal error");
-                Shutdown();
+                ShowError("A fatal error occurred.", "Unexpected error");
+                // No explicit Shutdown(); if the runtime must terminate, it will.
             };
 
             DispatcherUnhandledException += (s, ex) =>
             {
-                ShowError("An unexpected error occurred and the application will close.", "Unexpected error");
-                ex.Handled = true;
-                Shutdown();
+                ShowError("An unexpected error occurred.", "Unexpected error");
+                ex.Handled = true;            // keep the app alive
+                // DO NOT call Shutdown() here
             };
 
             TaskScheduler.UnobservedTaskException += (s, ex) =>
             {
-                // Mark observed to avoid process crash in finalizer thread
-                ex.SetObserved();
+                ex.SetObserved();              // avoid crash on finalizer thread
             };
 
             try
@@ -96,7 +105,7 @@ namespace SigstreamTelemetryAgent
 
                 HostInstance.Start();
 
-                // Warm VMs/services that must run even if their pages aren't opened
+                // Warm services (may show dialogs if COM missing)
                 _ = HostInstance.Services.GetRequiredService<ViewModels.ComPortViewModel>();
 
                 // Apply “Start with Windows”
@@ -119,6 +128,10 @@ namespace SigstreamTelemetryAgent
                 {
                     main.Show();
                 }
+
+                // Restore normal shutdown behavior now that a main window exists
+                if (shutdownModeChanged)
+                    this.ShutdownMode = originalShutdownMode;
             }
             catch
             {
@@ -197,10 +210,7 @@ namespace SigstreamTelemetryAgent
         // ========= Helpers: Branded dialogs with safe fallback =========
         private static IDialogService? ResolveDialogService()
         {
-            try
-            {
-                return HostInstance?.Services.GetService<IDialogService>();
-            }
+            try { return HostInstance?.Services.GetService<IDialogService>(); }
             catch { return null; }
         }
 
@@ -208,14 +218,14 @@ namespace SigstreamTelemetryAgent
         {
             var dlg = ResolveDialogService();
             if (dlg != null) { dlg.Info(message, header); return; }
-            MessageBox.Show(message, "SigStream", MessageBoxButton.OK, MessageBoxImage.Information);
+            System.Windows.MessageBox.Show(message, "SigStream", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private static void ShowError(string message, string header = "Error")
         {
             var dlg = ResolveDialogService();
             if (dlg != null) { dlg.Error(message, header); return; }
-            MessageBox.Show(message, "SigStream", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show(message, "SigStream", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }
