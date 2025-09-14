@@ -25,5 +25,15 @@ namespace SigstreamTelemetryAgent.Views.Pages
             }
             e.Handled = true;
         }
+
+
+
+        private void ReportBug_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var dlg = new SigstreamTelemetryAgent.Views.Dialogs.ReportBugDialog();
+            dlg.Owner = System.Windows.Window.GetWindow(this);
+            dlg.ShowDialog();
+        }
+
     }
 }

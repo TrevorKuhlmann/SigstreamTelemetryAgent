@@ -12,5 +12,8 @@ namespace SigstreamTelemetryAgent.Services
         Task<StatusResult?> CheckStatusAsync(string apiKey, string machineId);
         Task<bool> SendHeartbeatAsync(string apiKey, string machineId);
         Task<bool> SendDataAsync(string apiKey, string machineId, TelemetryRecord record);
+
+
+        Task<bool> SendBugReportAsync(BugReportPayload payload);
     }
 }

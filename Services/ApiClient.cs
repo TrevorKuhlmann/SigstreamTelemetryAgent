@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using SigstreamTelemetryAgent.Models;
 
 namespace SigstreamTelemetryAgent.Services
+
+
 {
     // Server contract (main.py):
     //  - POST /api/claim        body: { api_key, machine_id, description }
@@ -224,6 +226,23 @@ namespace SigstreamTelemetryAgent.Services
             catch
             {
                 LastStatusCode = null;
+                return false;
+            }
+        }
+
+
+
+
+        public async Task<bool> SendBugReportAsync(BugReportPayload payload)
+        {
+            try
+            {
+                var res = await _http.PostAsJsonAsync("/api/report-bug", payload)
+                                     .ConfigureAwait(false);
+                return res.IsSuccessStatusCode;
+            }
+            catch
+            {
                 return false;
             }
         }
